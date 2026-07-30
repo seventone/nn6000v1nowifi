@@ -106,15 +106,18 @@ fi
 BOARD_D_NET="./target/linux/qualcommax/ipq60xx/base-files/etc/board.d/02_network"
 if [ -f "$BOARD_D_NET" ] && grep -q "link_nn6000-v1" "$BOARD_D_NET"; then
 	#
-	# 在 board.d/02_network 中，设备 link_nn6000-v1 会有类似：
+	# 在 board.d/02_network 中，设备 link_nn6000-v1 的 LAN/WAN 配置原文：
 	#   ucidef_set_interfaces_lan_wan "lan1 lan2" "wan"
-	# 我们把它改为全部三个口都放在 lan 组，没有 wan
+	# 我们改为 3 个口全部放入 LAN 组（lan1+lan2+lan3），没有 WAN，
+	# 这样 netifd 启动时会自动把三个口都桥接到 br-lan。
 	#
-	sed -i '/link_nn6000-v1/,/;;/ {
-		s/ucidef_set_interfaces_lan_wan\s\+"[^"]*"\s\+"[^"]*"/ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" ""/g
-	}' "$BOARD_D_NET" 2>/dev/null
+	# 注：使用简单字符串直接替换而不是 \s+ 正则，
+	# 因为 GNU sed BRE（基本正则）模式下 \s 和 \+ 都不是元字符，
+	# 容易导致替换完全不匹配、静默失效而难排查。
+	#
+	sed -i 's|ucidef_set_interfaces_lan_wan "lan1 lan2" "wan"|ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" ""|g' "$BOARD_D_NET" 2>/dev/null
 
-	echo "NN6000 V1: board.d/02_network patched: no WAN, all ports to LAN group."
+	echo "NN6000 V1: board.d/02_network patched: no WAN, all 3 ports to LAN group."
 fi
 
 #
