@@ -2,7 +2,7 @@
 # Copyright (C) 2026 VIKINGYFY
 
 #CI项目
-name: NN6000-V1-WIFI-NO
+name: NN6000 V1 No WiFi
 
 #CI计划
 on:
