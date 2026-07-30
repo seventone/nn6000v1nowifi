@@ -1,0 +1,310 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 VIKINGYFY
+
+#云编译公用核心
+name: WRT-CORE
+
+on:
+  workflow_call:
+    inputs:
+      WRT_CONFIG:
+        required: true
+        type: string
+      WRT_THEME:
+        required: true
+        type: string
+      WRT_NAME:
+        required: true
+        type: string
+      WRT_SSID:
+        required: true
+        type: string
+      WRT_WORD:
+        required: true
+        type: string
+      WRT_IP:
+        required: true
+        type: string
+      WRT_PW:
+        required: true
+        type: string
+      WRT_REPO:
+        required: true
+        type: string
+      WRT_BRANCH:
+        required: true
+        type: string
+      WRT_SOURCE:
+        required: true
+        type: string
+      WRT_PACKAGE:
+        required: false
+        type: string
+      WRT_TEST:
+        required: false
+        type: string
+
+env:
+  GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+  WRT_CONFIG: ${{inputs.WRT_CONFIG}}
+  WRT_THEME: ${{inputs.WRT_THEME}}
+  WRT_NAME: ${{inputs.WRT_NAME}}
+  WRT_SSID: ${{inputs.WRT_SSID}}
+  WRT_WORD: ${{inputs.WRT_WORD}}
+  WRT_IP: ${{inputs.WRT_IP}}
+  WRT_PW: ${{inputs.WRT_PW}}
+  WRT_REPO: ${{inputs.WRT_REPO}}
+  WRT_BRANCH: ${{inputs.WRT_BRANCH}}
+  WRT_SOURCE: ${{inputs.WRT_SOURCE}}
+  WRT_PACKAGE: ${{inputs.WRT_PACKAGE}}
+  WRT_TEST: ${{inputs.WRT_TEST}}
+  #CCache 加速：开启压缩+提升上限，首次编译后再次编译可显著加速
+  CCACHE_MAXSIZE: "10G"
+  CCACHE_COMPRESS: "true"
+  CCACHE_COMPRESSLEVEL: "6"
+
+jobs:
+  core:
+    name: ${{inputs.WRT_SOURCE}}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Projects
+        uses: actions/checkout@main
+
+      - name: Initialization Environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo -E apt -yqq purge firefox
+          sudo -E apt -yqq update
+          sudo -E apt -yqq full-upgrade
+          sudo -E apt -yqq autoremove --purge
+          sudo -E apt -yqq autoclean
+          sudo -E apt -yqq clean
+          sudo -E apt -yqq install dos2unix libfuse-dev
+          sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+          sudo -E systemctl daemon-reload
+          sudo -E timedatectl set-timezone "Asia/Shanghai"
+
+          sudo mkdir -p /mnt/build_wrt
+          sudo chown $USER:$USER /mnt/build_wrt
+          sudo ln -s /mnt/build_wrt $GITHUB_WORKSPACE/wrt
+
+      - name: Initialization Values
+        run: |
+          echo "WRT_DATE=$(TZ=UTC-8 date +"%y.%m.%d-%H.%M.%S")" >> $GITHUB_ENV
+          echo "WRT_MARK=${GITHUB_REPOSITORY%%/*}" >> $GITHUB_ENV
+          echo "WRT_INFO=${WRT_SOURCE%%/*}" >> $GITHUB_ENV
+          echo "WRT_TARGET=$(grep -m 1 -oP '^CONFIG_TARGET_\K[\w]+(?=\=y)' ./Config/$WRT_CONFIG.txt)" >> $GITHUB_ENV
+          echo "WRT_WIFI=wifi-yes" >> $GITHUB_ENV
+          echo "WRT_KVER=none" >> $GITHUB_ENV
+          echo "WRT_LIST=none" >> $GITHUB_ENV
+
+      - name: Clone Code
+        run: |
+          git clone --depth=1 --single-branch --branch $WRT_BRANCH $WRT_REPO ./wrt/
+
+          cd ./wrt/ && echo "WRT_HASH=$(git log -1 --pretty=format:'%h')" >> $GITHUB_ENV
+
+          # GitHub Action 移除国内下载源
+          PROJECT_MIRRORS_FILE="./scripts/projectsmirrors.json"
+          if [ -f "$PROJECT_MIRRORS_FILE" ]; then
+            sed -i '/.cn\//d; /tencent/d; /aliyun/d' "$PROJECT_MIRRORS_FILE"
+          fi
+
+      - name: Check Scripts
+        run: |
+          find ./ -maxdepth 3 -type f -iregex ".*\(txt\|sh\)$" -exec dos2unix {} \; -exec chmod +x {} \;
+
+      - name: Cache CCache & DL (加速重复编译)
+        id: cache-ccache
+        if: env.WRT_TEST != 'true'
+        uses: actions/cache@main
+        with:
+          #key 带日期滚动，restore-keys 尽量复用任意历史 ccache/dl，最大化命中率
+          key: ccache-${{env.WRT_CONFIG}}-${{env.WRT_INFO}}-${{env.WRT_HASH}}-${{env.WRT_DATE}}
+          restore-keys: |
+            ccache-${{env.WRT_CONFIG}}-${{env.WRT_INFO}}-${{env.WRT_HASH}}
+            ccache-${{env.WRT_CONFIG}}-${{env.WRT_INFO}}
+            ccache-${{env.WRT_CONFIG}}
+          path: |
+            ./wrt/.ccache
+            ./wrt/dl
+
+      - name: Cache Toolchain & Host (加速重复编译，严格匹配源码哈希)
+        id: cache-toolchain
+        if: env.WRT_TEST != 'true'
+        uses: actions/cache@main
+        with:
+          key: toolchain-${{env.WRT_CONFIG}}-${{env.WRT_INFO}}-${{env.WRT_HASH}}
+          restore-keys: |
+            toolchain-${{env.WRT_CONFIG}}-${{env.WRT_INFO}}
+          path: |
+            ./wrt/staging_dir/host*
+            ./wrt/staging_dir/tool*
+
+      - name: Update Caches
+        if: env.WRT_TEST != 'true'
+        run: |
+          #打印 ccache 使用统计，方便观察命中效果
+          if command -v ccache >/dev/null 2>&1; then
+            echo "=== ccache statistics ==="
+            ccache -s 2>/dev/null || true
+          fi
+
+          if [ -d "./wrt/staging_dir" ]; then
+            find "./wrt/staging_dir" -type d -name "stamp" -not -path "*target*" | while read -r DIR; do
+              find "$DIR" -type f -exec touch {} +
+            done
+
+            mkdir -p ./wrt/tmp && echo "1" > ./wrt/tmp/.build
+
+            echo "toolchain skiped done!"
+          else
+            echo "toolchain cache missed!"
+          fi
+
+          if ${{steps.cache-ccache.outputs.cache-hit != 'true'}}; then
+            echo "ccache/dl cache miss (will create new entry)"
+          else
+            echo "ccache/dl cache hit (reusing previous build artifacts)"
+          fi
+
+          if ${{steps.cache-toolchain.outputs.cache-hit != 'true'}}; then
+            #源码 hash 变化时清理同配置下旧 toolchain 缓存（避免仓库缓存额度被旧条目占满）
+            CACHE_LIST=$(gh cache list --key "toolchain-$WRT_CONFIG-$WRT_INFO" | cut -f 1)
+            for CACHE_KEY in $CACHE_LIST; do
+              gh cache delete $CACHE_KEY 2>/dev/null || true
+            done
+            echo "old toolchain caches cleanup done!"
+          fi
+
+      - name: Update Feeds
+        run: |
+          cd ./wrt/
+
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Custom Settings
+        run: |
+          cd ./wrt/
+
+          if [[ "${WRT_CONFIG,,}" == *"test"* ]]; then
+            cat $GITHUB_WORKSPACE/Config/$WRT_CONFIG.txt >> .config
+          else
+            cat $GITHUB_WORKSPACE/Config/$WRT_CONFIG.txt $GITHUB_WORKSPACE/Config/GENERAL.txt >> .config
+          fi
+
+          $GITHUB_WORKSPACE/Scripts/Settings.sh
+
+          make defconfig -j$(nproc) && make clean -j$(nproc)
+
+      - name: Download Packages
+        if: env.WRT_TEST != 'true'
+        run: |
+          cd ./wrt/
+
+          make download -j$(nproc)
+
+      - name: Compile Firmware
+        if: env.WRT_TEST != 'true'
+        run: |
+          cd ./wrt/
+
+          make -j$(nproc) || make -j1 V=s
+
+      - name: Machine Information
+        run: |
+          cd ./wrt/
+
+          echo "======================="
+          lscpu | grep -E "name|Core|Thread"
+          echo "======================="
+          df -h
+          echo "======================="
+          du -h --max-depth=1
+          echo "======================="
+
+      - name: Package Firmware
+        run: |
+          cd ./wrt/ && mkdir ./upload/
+
+          cp -f ./.config ./upload/Config-"$WRT_CONFIG"-"$WRT_INFO"-"$WRT_BRANCH"-"$WRT_DATE".txt
+
+          if [[ $WRT_TEST != 'true' ]]; then
+            echo "WRT_KVER=$(find ./bin/targets/ -type f -name "*.manifest" -exec grep -oP '^kernel - \K[\d\.]+' {} \;)" >> $GITHUB_ENV
+            echo "WRT_LIST=$(find ./bin/targets/ -type f -name "*.manifest" -exec grep -oP '^luci-(app|theme)[^ ]*' {} \; | tr '\n' ' ')" >> $GITHUB_ENV
+
+            # =================================================================
+            # 仅保留用户指定的两种固件格式：
+            #   1) 首次刷机:  nn6000v1nowifi-{WRT_DATE}-factory.bin
+            #   2) 升级用:     nn6000v1nowifi-{WRT_DATE}-squashfs-sysupgrade.bin
+            # 其他所有镜像格式（initramfs / rootfs / itb / dtb / tar 等）全部过滤
+            # =================================================================
+            FIRMWARE_PREFIX="nn6000v1nowifi"
+            TARGET_DIR="./bin/targets/"
+
+            echo "======================================"
+            echo "筛选并复制仅两种目标固件到 upload/..."
+            echo "======================================"
+
+            # 1) factory.bin（首次刷机 / Web 原厂界面刷入）
+            FACTORY_FILE=$(find "$TARGET_DIR" -type f -iname "*-factory.bin" | head -n 1)
+            if [ -n "$FACTORY_FILE" ]; then
+              FACTORY_OUT="$FIRMWARE_PREFIX-$WRT_DATE-factory.bin"
+              cp -f "$FACTORY_FILE" "./upload/$FACTORY_OUT"
+              echo "✔ factory 固件: $(basename $FACTORY_FILE)  →  $FACTORY_OUT"
+            else
+              echo "✗ 未找到 factory.bin 格式文件，请检查平台产物路径！" >&2
+            fi
+
+            # 2) squashfs-sysupgrade.bin（LuCI/命令行 sysupgrade 升级用）
+            SYSUP_FILE=$(find "$TARGET_DIR" -type f -iname "*-squashfs-sysupgrade.bin" | head -n 1)
+            if [ -n "$SYSUP_FILE" ]; then
+              SYSUP_OUT="$FIRMWARE_PREFIX-$WRT_DATE-squashfs-sysupgrade.bin"
+              cp -f "$SYSUP_FILE" "./upload/$SYSUP_OUT"
+              echo "✔ sysupgrade 固件: $(basename $SYSUP_FILE)  →  $SYSUP_OUT"
+            else
+              echo "✗ 未找到 squashfs-sysupgrade.bin 格式文件，请检查平台产物路径！" >&2
+            fi
+
+            echo "======================================"
+            echo "upload/ 目录最终内容："
+            ls -lh ./upload/
+            echo "======================================"
+
+            make clean -j$(nproc)
+          fi
+
+      - name: Release Firmware
+        uses: softprops/action-gh-release@master
+        with:
+          tag_name: ${{env.WRT_CONFIG}}-${{env.WRT_INFO}}-${{env.WRT_BRANCH}}-${{env.WRT_DATE}}
+          files: ./wrt/upload/*.*
+          body: |
+            本固件仅适用于 **NN6000 V1 无WiFi版**（link_nn6000-v1，IPQ6018 平台）。
+            其他型号请勿刷入！
+
+            ⚠️ 本固件为**无WiFi版**，没有任何无线驱动和接口。
+
+            固件产物（仅两种）：
+              • `nn6000v1nowifi-日期时间-factory.bin` —— **首次刷机用**（原厂 Web 界面或 Breed 等）
+              • `nn6000v1nowifi-日期时间-squashfs-sysupgrade.bin` —— **升级用**（LuCI 系统 → 备份/升级 → 刷写固件）
+
+            旁路由默认参数：
+              • 管理地址：${{env.WRT_IP}}
+              • 登录密码：${{env.WRT_PW}}
+              • 默认网关：10.0.0.100
+              • DNS 服务器：10.0.0.5 / 223.5.5.5
+              • DHCP 服务：关闭（主路由分配 IP）
+
+            源码：${{env.WRT_REPO}}
+            分支：${{env.WRT_BRANCH}}
+            提交：${{env.WRT_HASH}}
+
+            配置：${{env.WRT_CONFIG}}
+            平台：${{env.WRT_TARGET}}
+
+            内核版本：${{env.WRT_KVER}}
+            插件列表：${{env.WRT_LIST}}
