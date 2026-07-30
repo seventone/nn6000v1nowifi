@@ -65,7 +65,10 @@ if [ -f "$CFG_FILE" ]; then
 fi
 
 # 基础配置注入
-# 注：LuCI Web 入口和中文字体 ImmortalWrt 平台默认会选上；主题包和主题配置只有显式写才会编进固件
+# LuCI 元包 + 简体中文语言包（关键：CONFIG_LUCI_LANG_zh_Hans=y 是 LuCI 中文总开关，
+# 开启后会自动把所有 luci 模块的中文翻译编进固件，否则默认只有英文）
+echo "CONFIG_PACKAGE_luci=y" >> ./.config
+echo "CONFIG_LUCI_LANG_zh_Hans=y" >> ./.config
 echo "CONFIG_PACKAGE_luci-theme-$WRT_THEME=y" >> ./.config
 echo "CONFIG_PACKAGE_luci-app-$WRT_THEME-config=y" >> ./.config
 
