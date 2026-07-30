@@ -104,18 +104,24 @@ fi
 # ========================================================================
 
 BOARD_D_NET="./target/linux/qualcommax/ipq60xx/base-files/etc/board.d/02_network"
-if [ -f "$BOARD_D_NET" ] && grep -q "link_nn6000-v1" "$BOARD_D_NET"; then
+if [ -f "$BOARD_D_NET" ] && grep -q "link,nn6000-v1" "$BOARD_D_NET"; then
 	#
-	# 在 board.d/02_network 中，设备 link_nn6000-v1 的 LAN/WAN 配置原文：
-	#   ucidef_set_interfaces_lan_wan "lan1 lan2" "wan"
-	# 我们改为 3 个口全部放入 LAN 组（lan1+lan2+lan3），没有 WAN，
-	# 这样 netifd 启动时会自动把三个口都桥接到 br-lan。
+	# 在 board.d/02_network 中，设备 link,nn6000-v1 的 case 分支原文：
+	#   link,nn6000-v1)
+	#       ucidef_set_interfaces_lan_wan "lan1 lan2" "wan"
+	#       ;;
+	# 我们在这个独立的 case 范围内，把包含 ucidef_set_interfaces_lan_wan 的整行
+	# 直接替换为 3 个口全部 LAN + 无 WAN，这样 netifd 启动时会把 lan1/lan2/lan3
+	# 全部自动桥接到 br-lan。
 	#
-	# 注：使用简单字符串直接替换而不是 \s+ 正则，
-	# 因为 GNU sed BRE（基本正则）模式下 \s 和 \+ 都不是元字符，
-	# 容易导致替换完全不匹配、静默失效而难排查。
+	# 范围用 /link,nn6000-v1)/,/;;/ 精确锁到 nn6000 这一个设备分支，
+	# 不会误伤 dptech,ap3000-2c / 8devices,mango-dvk / glinet,gl-axt1800
+	# 等其它和 nn6000 共用同一条配置的设备（之前方案1就是因为没加范围，
+	# 全局替换导致编译异常）。
 	#
-	sed -i 's|ucidef_set_interfaces_lan_wan "lan1 lan2" "wan"|ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" ""|g' "$BOARD_D_NET" 2>/dev/null
+	sed -i '/link,nn6000-v1)/,/;;/ {
+		s/.*ucidef_set_interfaces_lan_wan.*/\tucidef_set_interfaces_lan_wan "lan1 lan2 lan3" ""/
+	}' "$BOARD_D_NET" 2>/dev/null
 
 	echo "NN6000 V1: board.d/02_network patched: no WAN, all 3 ports to LAN group."
 fi
