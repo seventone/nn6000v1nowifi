@@ -75,78 +75,24 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          # #################################################################
-          # NN6000 V1 旁路由专属：APT 瘦身 + 网络重试（防 lmodern/texlive
-          # 之类的文档字体包在 Azure archive CDN 下载卡死）
-          #
-          # 背景（2026-07-31 run #13 卡 20+ 分钟排查）：
-          #   ImmortalWrt 官方 init_build_environment.sh 默认 apt install
-          #   全套"构建环境"，会 Install-Recommends 拉进 texlive-latex、
-          #   pandoc、asciidoc、doxygen、lmodern（9.5MB 拉丁字体集）等
-          #   一堆 OpenWrt 构建「编译固件完全用不到」的文档工具。一旦
-          #   azure.archive.ubuntu.com 对某个 CDN 节点慢，哪怕只卡 1 个
-          #   9.5MB 的 deb，整个初始化阶段就会一直 hung 到 Actions 6h
-          #   超时都没反应。
-          #
-          # 策略（从源头解决，不指望网络自愈）：
-          #   ① 全局 /etc/apt/apt.conf.d 写入：Install-Recommends=off +
-          #      Install-Suggests=off → 任何 apt install 都不会额外拉推荐
-          #      依赖链里的 texlive/lmodern/pandoc/doxygen/asciidoc。
-          #   ② 全局 Acquire::Retries=5 + http/https Timeout=30s →
-          #      单个 CDN 节点卡了会重试换节点，不会 hung 住。
-          #   ③ 删掉 L80 的 apt full-upgrade：GitHub Actions runner 每
-          #      周重建镜像，系统本身补丁齐全；full-upgrade 反而会重新触
-          #      发 "下载 runner 里已装的 texlive/lmodern 新版本 deb"，
-          #      这就是 run #13 卡 Get:51 lmodern_2.005-1_all.deb 的根因。
-          #   ④ 官方 init_build_environment.sh 执行完立刻 purge 掉所有
-          #      文档/排版/字体类包，进一步减少后续 apt 操作误触下载。
-          # #################################################################
-          sudo tee /etc/apt/apt.conf.d/99-nn6000-lean <<'APT_EOF'
-APT::Install-Recommends "false";
-APT::Install-Suggests    "false";
-Acquire::Retries          "5";
-Acquire::http::Timeout    "30";
-Acquire::https::Timeout   "30";
-Acquire::ftp::Timeout     "30";
-DPkg::Options             "--force-confdef";
-DPkg::Options             "--force-confold";
-APT_EOF
-          sudo chmod 644 /etc/apt/apt.conf.d/99-nn6000-lean
-
-          # 先 purge 已知的大体积无用包（ubuntu-latest runner 默认装一堆桌面/文档）
-          sudo -E apt -yqq purge firefox \
-            '^texlive-.*$' \
-            '^lmodern.*$' \
-            '^pandoc.*$' \
-            '^asciidoc.*$' \
-            '^doxygen.*$' \
-            '^docbook.*$' \
-            '^dblatex.*$' \
-            2>/dev/null || true
-
-          # 正常 apt update + 必要小工具（只装我们需要的，
-          # --no-install-recommends 配合 apt.conf 全局生效 2 次保险）
+          # NN6000 V1 旁路由专属最小修改（backup-v4.5，相对原作者只改 3 点）
+          #   ① 删除 apt full-upgrade（原作者 L80 会触发 runner 已装的 texlive/lmodern/
+          #     asciidoc 等无用包下载新版本 deb，CDN 偶发慢就会卡，是 run #13 在
+          #     Get:51 lmodern_2.005-1_all.deb 停住的直接根因）
+          #   ② apt install dos2unix/libfuse-dev 加 --no-install-recommends（加两个
+          #     单词，完全无害，顺手少装推荐依赖链）
+          #   ③ 时区从 timedatectl 改 ln -sf：GitHub runner 偶尔 PolicyKit 没就绪
+          #     timedatectl 会报 Access denied，纯文件操作永远不会受 PolicyKit 影响
+          sudo -E apt -yqq purge firefox
           sudo -E apt -yqq update
+          # sudo -E apt -yqq full-upgrade   ← 原作者这一行已删除（原因见①）
           sudo -E apt -yqq autoremove --purge
           sudo -E apt -yqq autoclean
           sudo -E apt -yqq clean
           sudo -E apt -yqq install --no-install-recommends dos2unix libfuse-dev
-
-          # 官方 init_build_environment.sh：此时已经受 99-nn6000-lean
-          # apt.conf 管控，不会再装 texlive/lmodern/pandoc/doxygen
           sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
-
-          # 保险：再 purge 一轮万一官方脚本里有硬写 Install-Recommends
-          # 强制装的文档类包，删掉它们以及对应残留配置
-          sudo -E apt -yqq purge --auto-remove \
-            '^texlive-.*$' '^lmodern.*$' '^pandoc.*$' \
-            '^asciidoc.*$' '^doxygen.*$' '^docbook.*$' '^dblatex.*$' \
-            2>/dev/null || true
-          sudo -E apt -yqq autoremove --purge
-          sudo -E apt -yqq clean
-
-          # systemd + 时区（和原逻辑一致，时区改用 ln -sf 防止 PolicyKit 偶尔 denied）
           sudo -E systemctl daemon-reload
+          # 时区：ln -sf 纯文件操作（原作者 timedatectl 改法撞 PolicyKit denied 的兜底）
           sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
           sudo mkdir -p /mnt/build_wrt

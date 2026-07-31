@@ -185,28 +185,25 @@ jobs.build-with:
     - 源码 repo / branch / hash / 配置 / 平台 / 内核 / 插件列表 保留
 
 ────────────────────────────────────────
-2.2.3 Initialization Environment 容错（[WRT-CORE.yml:74-154] 时区/APT 瘦身/网络重试）
+2.2.3 Initialization Environment 最小安全修改（[WRT-CORE.yml:74-100] 3 处改动）
 ────────────────────────────────────────
 原作者（WRT-CORE.yml L78-87）：
   sudo -E apt -yqq purge firefox
   sudo -E apt -yqq update
-  sudo -E apt -yqq full-upgrade   ← 会把 runner 里已装的 texlive/lmodern（9.5MB字体）版本更新也触发下载，卡 azure.archive.ubuntu.com CDN 偶发慢节点时 hung 住
+  sudo -E apt -yqq full-upgrade   ← 会触发 runner 里已经装了的 texlive/lmodern/asciidoc/doxygen 等无用软件包「下载新版本 deb 做升级」，CDN 偶发慢就会卡，2026-07-31 run #13 Get:51 lmodern_9.5MB.deb 卡住就是这行导致
   sudo -E apt -yqq install dos2unix libfuse-dev
-  sudo bash -c 'bash <(curl -sL build-scripts.immortalwrt.org/init_build_environment.sh)>'  ← 官方脚本默认 apt install 全套依赖链 Install-Recommends 拉进 texlive-latex / pandoc / asciidoc / doxygen / lmodern 等文档排版字体包（固件构建完全无用）
-  sudo -E timedatectl set-timezone "Asia/Shanghai"
+  sudo bash -c 'bash <(curl -sL build-scripts.immortalwrt.org/init_build_environment.sh)>'
+  sudo -E timedatectl set-timezone "Asia/Shanghai"   ← GitHub runner 偶尔 PolicyKit 没就绪，会报 Access denied
 
-我们（backup-v4.4 改，原因：2026-07-31 run #13 初始化阶段 Get:51 lmodern_2.005-1_all.deb 卡 20+ 分钟没动过）：
-  ① 先写全局 apt 配置 /etc/apt/apt.conf.d/99-nn6000-lean：
-        APT::Install-Recommends "false";   ← 任何 apt install 都不再自动装推荐链里的 texlive/lmodern/pandoc/doxygen
-        APT::Install-Suggests "false";
-        Acquire::Retries "5";               ← 单个 CDN 节点卡自动重试换节点，不 hung
-        Acquire::http/https/ftp::Timeout "30";
-  ② apt update 之前先 purge 已知大体积无用正则包：
-        firefox / ^texlive-.*$ / ^lmodern.*$ / ^pandoc.*$ / ^asciidoc.*$ / ^doxygen.*$ / ^docbook.*$ / ^dblatex.*$
-  ③ 删除 apt full-upgrade：runner 每周重建镜像补丁齐全，full-upgrade 只会触发 runner 自带旧软件包下载 多余 deb，是 run #13 卡 lmodern 的直接根因
-  ④ sudo apt install dos2unix libfuse-dev 保留，但加 --no-install-recommends（与 apt.conf 全局生效 2 次保险
-  ⑤ 官方 init_build_environment.sh 执行完 再 purge 一轮 万一官方脚本里有强制装的文档类包 + autoremove clean
-  ⑥ 时区写法切换 原 PolicyKit 偶尔 denied 改成文件写法： sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime（PolicyKit 就不影响
+我们（backup-v4.5 定型，最小安全修改原则：只删 1 行 + 加几个单词，绝对不引入 apt.conf/purge 正则等大动作）：
+  ① apt full-upgrade 「直接删掉」，只注释掉不执行
+     理由：ubuntu-latest runner 每周重新打镜像，本身补丁已经齐全；full-upgrade 没有任何正面收益，只会触发已装的 texlive/lmodern 等大量无用包重新下载新版本 deb，一旦 Azure CDN 慢就 hung 住
+  ② sudo apt install dos2unix libfuse-dev 加 --no-install-recommends（两个单词，0 风险），顺手少装 dos2unix/libfuse-dev 的推荐依赖链
+  ③ 时区从 timedatectl set-timezone 改成纯文件操作：sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+     理由：ln -sf 不需要任何 PolicyKit 权限，永远不会 Access denied
+  其他所有命令（apt purge firefox / apt update / autoremove / clean / 官方 init_build_environment.sh）完全保持原作者写法，不再引入 apt.conf / 2 轮 purge 正则包等激进改动。
+
+注：backup-v4.4 曾尝试写 apt.conf Install-Recommends=false + Acquire::Retries=5 + 前后 2 轮 purge texlive/lmodern/pandoc/doxygen，经用户指出影响面过大，立即回滚，此后不要再加任何 apt 全局配置和多轮 purge 动作，保持最小 3 处修改即可。
 
 ────────────────────────────────────────
 2.3 .github/workflows/Cache-Clean.yml    （每周自动清理 → 只留手动）
