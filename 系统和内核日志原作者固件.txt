@@ -1,0 +1,802 @@
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] Booting Linux on physical CPU 0x0000000000 [0x51af8014]
+[2026年7月23日 GMT+8 12:04:34] kern.notice: [    0.000000] Linux version 6.18.39 (runner@runnervmvrwv9) (aarch64-openwrt-linux-musl-gcc (OpenWrt GCC 14.4.0 r0-a4638cd) 14.4.0, GNU ld (GNU Binutils) 2.46.1) #0 SMP Thu Jul 23 04:04:25 2026
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] Machine model: Link NN6000 v1
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] OF: reserved mem: 0x0000000000060000..0x0000000000065fff (24 KiB) nomap non-reusable rpm_msg_ram@60000
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] OF: reserved mem: 0x0000000040000000..0x0000000040ffffff (16384 KiB) nomap non-reusable nss@40000000
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] OF: reserved mem: 0x000000004a100000..0x000000004a4fffff (4096 KiB) nomap non-reusable bootloader@4a100000
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] OF: reserved mem: 0x000000004a600000..0x000000004a9fffff (4096 KiB) nomap non-reusable tz@4a600000
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] OF: reserved mem: 0x000000004aa00000..0x000000004aafffff (1024 KiB) nomap non-reusable smem@4aa00000
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] OF: reserved mem: 0x000000004ab00000..0x000000004bafffff (16384 KiB) nomap non-reusable q6@4ab00000
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] OF: reserved mem: 0x000000004bb00000..0x000000004bbfffff (1024 KiB) nomap non-reusable q6_etr@4eb00000
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] OF: reserved mem: 0x000000004bc00000..0x000000004bcfffff (1024 KiB) nomap non-reusable m3_dump@4ec00000
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] OF: reserved mem: 0x000000004bd00000..0x000000004bdfffff (1024 KiB) nomap non-reusable ramoops@4ed00000
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] Zone ranges:
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000]   DMA      [mem 0x0000000040000000-0x00000000bfffffff]
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000]   DMA32    empty
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000]   Normal   empty
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] Movable zone start for each node
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] Early memory node ranges
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000]   node   0: [mem 0x0000000040000000-0x0000000040ffffff]
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000]   node   0: [mem 0x0000000041000000-0x000000004a0fffff]
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000]   node   0: [mem 0x000000004a100000-0x000000004a4fffff]
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000]   node   0: [mem 0x000000004a500000-0x000000004a5fffff]
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000]   node   0: [mem 0x000000004a600000-0x000000004bdfffff]
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000]   node   0: [mem 0x000000004be00000-0x00000000bfffffff]
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] Initmem setup node 0 [mem 0x0000000040000000-0x00000000bfffffff]
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] psci: probing for conduit method from DT.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] psci: PSCIv1.0 detected in firmware.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] psci: Using standard PSCI v0.2 function IDs
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] psci: MIGRATE_INFO_TYPE not supported.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] psci: SMC Calling Convention v1.0
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] percpu: Embedded 20 pages/cpu s44184 r8192 d29544 u81920
+[2026年7月23日 GMT+8 12:04:34] kern.debug: [    0.000000] pcpu-alloc: s44184 r8192 d29544 u81920 alloc=20*4096
+[2026年7月23日 GMT+8 12:04:34] kern.debug: [    0.000000] pcpu-alloc: [0] 0 [0] 1 [0] 2 [0] 3
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] Detected VIPT I-cache on CPU0
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] CPU features: detected: Spectre-v4
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] alternatives: applying boot alternatives
+[2026年7月23日 GMT+8 12:04:34] kern.notice: [    0.000000] Kernel command line: console=ttyMSM0,115200n8 root=PARTUUID=694a68fc-16a5-fcdc-2dbf-90f9b69e536d gpt rootwait
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] printk: log buffer data + meta data: 131072 + 458752 = 589824 bytes
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] Dentry cache hash table entries: 262144 (order: 9, 2097152 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] Inode-cache hash table entries: 131072 (order: 8, 1048576 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] software IO TLB: SWIOTLB bounce buffer size adjusted to 2MB
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] software IO TLB: area num 4.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] software IO TLB: mapped [mem 0x00000000bd600000-0x00000000bd800000] (2MB)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 524288
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] rcu: Hierarchical RCU implementation.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] 	Tracing variant of Tasks RCU enabled.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 10 jiffies.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] RCU Tasks Trace: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] Root IRQ handler: gic_handle_irq
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] GICv2m: range[mem 0x0b00a000-0x0b00affc], SPI[448:479]
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604462750000 ns
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] arch_timer: cp15 timer running at 24.00MHz (virt).
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] clocksource: arch_sys_counter: mask: 0xffffffffffffff max_cycles: 0x588fe9dc0, max_idle_ns: 440795202592 ns
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000000] sched_clock: 56 bits at 24MHz, resolution 41ns, wraps every 4398046511097ns
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000139] Calibrating delay loop (skipped), value calculated using timer frequency.. 48.00 BogoMIPS (lpj=240000)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.000151] pid_max: default: 32768 minimum: 301
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.004356] Mount-cache hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.004373] Mountpoint-cache hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.014277] rcu: Hierarchical SRCU implementation.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.014286] rcu: 	Max phase no-delay instances is 1000.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.014569] Timer migration: 1 hierarchy levels; 8 children per group; 1 crossnode level
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.014978] smp: Bringing up secondary CPUs ...
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.015671] Detected VIPT I-cache on CPU1
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.015817] CPU1: Booted secondary processor 0x0000000001 [0x51af8014]
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.016568] Detected VIPT I-cache on CPU2
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.016678] CPU2: Booted secondary processor 0x0000000002 [0x51af8014]
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.017400] Detected VIPT I-cache on CPU3
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.017506] CPU3: Booted secondary processor 0x0000000003 [0x51af8014]
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.017584] smp: Brought up 1 node, 4 CPUs
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.017592] SMP: Total of 4 processors activated.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.017597] CPU: All CPU(s) started at EL1
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.017601] CPU features: detected: 32-bit EL0 Support
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.017607] CPU features: detected: CRC32 instructions
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.017652] alternatives: applying system-wide alternatives
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.017864] CPU features: emulated: Privileged Access Never (PAN) using TTBR0_EL1 switching
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.018121] Memory: 1991552K/2097152K available (9152K kernel code, 904K rwdata, 2988K rodata, 960K init, 287K bss, 102120K reserved, 0K cma-reserved)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.026198] posixtimers hash table entries: 2048 (order: 3, 32768 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.026267] futex hash table entries: 1024 (65536 bytes on 1 NUMA nodes, total 64 KiB, linear).
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.026343] 29136 pages in range for non-PLT usage
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.026348] 520656 pages in range for PLT usage
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.028686] pinctrl core: initialized pinctrl subsystem
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.031025] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.031579] DMA: preallocated 256 KiB GFP_KERNEL pool for atomic allocations
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.031637] DMA: preallocated 256 KiB GFP_KERNEL|GFP_DMA pool for atomic allocations
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.031692] DMA: preallocated 256 KiB GFP_KERNEL|GFP_DMA32 pool for atomic allocations
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.032076] thermal_sys: Registered thermal governor 'step_wise'
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.032138] cpuidle: using governor menu
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.032336] ASID allocator initialised with 65536 entries
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.038680] /soc@0/interrupt-controller@b000000: Fixed dependency cycle(s) with /soc@0/interrupt-controller@b000000
+[2026年7月23日 GMT+8 12:04:34] kern.notice: [    0.078177] SCSI subsystem initialized
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.078402] usbcore: registered new interface driver usbfs
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.078443] usbcore: registered new interface driver hub
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.078483] usbcore: registered new device driver usb
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.078806] qcom_scm: convention: smc arm 64
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.080882] clocksource: Switched to clocksource arch_sys_counter
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.084972] NET: Registered PF_INET protocol family
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.085140] IP idents hash table entries: 32768 (order: 6, 262144 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.088553] tcp_listen_portaddr_hash hash table entries: 1024 (order: 2, 16384 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.088586] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.088609] TCP established hash table entries: 16384 (order: 5, 131072 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.088769] TCP bind hash table entries: 16384 (order: 7, 524288 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.089301] TCP: Hash tables configured (established 16384 bind 16384)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.089674] MPTCP token hash table entries: 2048 (order: 4, 49152 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.089872] UDP hash table entries: 1024 (order: 4, 65536 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.089965] UDP-Lite hash table entries: 1024 (order: 4, 65536 bytes, linear)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.090705] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.090746] PCI: CLS 0 bytes, default 64
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.092320] workingset: timestamp_bits=46 max_order=19 bucket_order=0
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.093121] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.093129] jffs2: version 2.2 (NAND) (SUMMARY) (LZMA) (RTIME) (CMODE_PRIORITY) (c) 2001-2006 Red Hat, Inc.
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    0.099354] qcom-qmp-usb-phy 78000.ssphy: supply vdda-phy not found, using dummy regulator
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    0.099497] qcom-qmp-usb-phy 78000.ssphy: supply vdda-pll not found, using dummy regulator
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    0.100419] qcom-qusb2-phy 79000.qusb: supply vdd not found, using dummy regulator
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    0.100576] qcom-qusb2-phy 79000.qusb: supply vdda-pll not found, using dummy regulator
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    0.100615] qcom-qusb2-phy 79000.qusb: supply vdda-phy-dpdm not found, using dummy regulator
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.108598] Serial: 8250/16550 driver, 2 ports, IRQ sharing disabled
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.109528] msm_serial 78b1000.serial: msm_serial: detected port #0
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.109626] msm_serial 78b1000.serial: uartclk = 1843200
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.110144] 78b1000.serial: ttyMSM0 at MMIO 0x78b1000 (irq = 19, base_baud = 115200) is a MSM
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.110221] msm_serial: console setup on port #0
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.110268] printk: legacy console [ttyMSM0] enabled
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.918426] msm_serial: driver initialized
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.928323] loop: module loaded
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.930540] spi_qup 78b5000.spi: IN:block:16, fifo:64, OUT:block:16, fifo:64
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.945469] i2c_dev: i2c /dev entries driver
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.951848] sdhci: Secure Digital Host Controller Interface driver
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.951891] sdhci: Copyright(c) Pierre Ossman
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.956927] sdhci-pltfm: SDHCI platform and OF driver helper
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.963525] clocksource: arch_mmio_counter: mask: 0xffffffffffffff max_cycles: 0x588fe9dc0, max_idle_ns: 440795202592 ns
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.967102] arch-timer-mmio b120000.timer: mmio timer running at 24.00MHz (virt)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.979735] remoteproc remoteproc0: releasing cd00000.remoteproc
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.987656] NET: Registered PF_INET6 protocol family
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.992959] Segment Routing with IPv6
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.996306] In-situ OAM (IOAM) with IPv6
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    0.999874] NET: Registered PF_PACKET protocol family
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.004027] l2tp_core: L2TP core driver, V2.0
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.008752] l2tp_netlink: L2TP netlink interface
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.009334] mmc0: SDHCI controller on 7804000.mmc [7804000.mmc] using ADMA 64-bit
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.013143] 8021q: 802.1Q VLAN Support v1.8
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.058746] cpufreq: cpufreq_policy_online: CPU0: Running at unlisted initial frequency: 799999 kHz, changing to: 864000 kHz
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.060278] remoteproc remoteproc0: cd00000.remoteproc is available
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.069872] clk: Disabling unused clocks
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    1.075655] check access for rdinit=/init failed: -2, ignoring
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.075715] Waiting for root device PARTUUID=694a68fc-16a5-fcdc-2dbf-90f9b69e536d...
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.136625] mmc0: new HS200 MMC card at address 0001
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.137439] mmcblk0: mmc0:0001 08A391 7.28 GiB
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    1.142589] GPT:Primary header alternate_lba != Alt. header my_lba
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    1.144914] GPT:7634943 != 15269887
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    1.151081] GPT:last_usable_lbas don't match.
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    1.154457] GPT:7634910 != 15269854
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    1.158969] GPT:disk_guids don't match.
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    1.162280] GPT:num_partition_entries don't match: 0xc != 0x80
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    1.166093] GPT:partition_entry_array_crc32 values don't match: 0x3acc3ff6 != 0x6f97f166
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    1.172010] GPT:Primary header thinks Alt. header is not at the end of the disk.
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    1.180245] GPT:7634943 != 15269887
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    1.187627] GPT: Use GNU Parted to correct GPT errors.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.190857]  mmcblk0: p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.197133] mmcblk0boot0: mmc0:0001 08A391 4.00 MiB
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.202682] mmcblk0boot1: mmc0:0001 08A391 4.00 MiB
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.207000] mmcblk0rpmb: mmc0:0001 08A391 4.00 MiB, chardev (246:0)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.223549] VFS: Mounted root (squashfs filesystem) readonly on device 179:11.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.223903] Freeing unused kernel memory: 960K
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    1.229752] Run /sbin/init as init process
+[2026年7月23日 GMT+8 12:04:34] kern.debug: [    1.234139]   with arguments:
+[2026年7月23日 GMT+8 12:04:34] kern.debug: [    1.234146]     /sbin/init
+[2026年7月23日 GMT+8 12:04:34] kern.debug: [    1.234151]   with environment:
+[2026年7月23日 GMT+8 12:04:34] kern.debug: [    1.234155]     HOME=/
+[2026年7月23日 GMT+8 12:04:34] kern.debug: [    1.234161]     TERM=linux
+[2026年7月23日 GMT+8 12:04:34] user.info: [    1.483592] init: Console is alive
+[2026年7月23日 GMT+8 12:04:34] user.info: [    1.483734] init: - watchdog -
+[2026年7月23日 GMT+8 12:04:34] user.info: [    2.371870] kmodloader: loading kernel modules from /etc/modules-boot.d/*
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    2.400789] raid6: skipped pq benchmark and selected neonx8
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    2.400828] raid6: using neon recovery algorithm
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    2.406832] xor: measuring software checksum speed
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    2.411060]    8regs           :  3194 MB/sec
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    2.415628]    32regs          :  3287 MB/sec
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    2.420153]    arm64_neon      :  2996 MB/sec
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    2.423411] xor: using function: 32regs (3287 MB/sec)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    2.501819] Btrfs loaded, zoned=no, fsverity=no
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    2.534087] gpio_button_hotplug: loading out-of-tree module taints kernel.
+[2026年7月23日 GMT+8 12:04:34] kern.err: [    2.534756] ipq6018-pinctrl 1000000.pinctrl: pin GPIO_42 already requested by 78b7000.i2c; cannot claim for 1000000.pinctrl:554
+[2026年7月23日 GMT+8 12:04:34] kern.err: [    2.539872] ipq6018-pinctrl 1000000.pinctrl: error -EINVAL: pin-42 (1000000.pinctrl:554)
+[2026年7月23日 GMT+8 12:04:34] kern.err: [    2.551260] gpio-keys keys: probe with driver gpio-keys failed with error -22
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    2.647913] ssdk_dt_parse_interrupt[1089]:INFO:link-intr-gpio is not defined, link polling is enabled
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    2.811369] __adpt_hppe_uniphy_psgmii_mode_set[1245]:INFO:uniphy 0 psgmii channel selection
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    2.926240] regi_init[2000]:INFO:Initializing CPPE Done!!
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [    2.926360] regi_init[2045]:INFO:qca-ssdk module init succeeded!
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    2.933638] EDMA ver 1 hw init
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    2.936904] EDMA HW Reset completed succesfully
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    2.939577] Num rings - TxDesc:1 (23-23) TxCmpl:1 (23-23)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    2.943998] RxDesc:1 (15-15) RxFill:1 (7-7)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.121832] Qualcomm QCA8075 90000.mdio-1:01: attached PHY driver (mii_bus:phy_addr=90000.mdio-1:01, irq=POLL)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.191410] Qualcomm QCA8075 90000.mdio-1:02: attached PHY driver (mii_bus:phy_addr=90000.mdio-1:02, irq=POLL)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.271412] Qualcomm QCA8075 90000.mdio-1:03: attached PHY driver (mii_bus:phy_addr=90000.mdio-1:03, irq=POLL)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.272266] **********************************************************
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.280315] * NSS Data Plane driver
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.286848] **********************************************************
+[2026年7月23日 GMT+8 12:04:34] kern.debug: [    3.297293] libata version 3.00 loaded.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.330810] xhci-hcd xhci-hcd.1.auto: xHCI Host Controller
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.330886] xhci-hcd xhci-hcd.1.auto: new USB bus registered, assigned bus number 1
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.336100] xhci-hcd xhci-hcd.1.auto: hcc params 0x0220fe65 hci version 0x110 quirks 0x0000808000000010
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.342832] xhci-hcd xhci-hcd.1.auto: irq 39, io mem 0x08a00000
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.352282] xhci-hcd xhci-hcd.1.auto: xHCI Host Controller
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.358035] xhci-hcd xhci-hcd.1.auto: new USB bus registered, assigned bus number 2
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.363595] xhci-hcd xhci-hcd.1.auto: Host supports USB 3.0 SuperSpeed
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.371550] hub 1-0:1.0: USB hub found
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.377745] hub 1-0:1.0: 1 port detected
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.381729] usb usb2: We don't know the algorithms for LPM for this host, disabling LPM.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.385836] hub 2-0:1.0: USB hub found
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.393677] hub 2-0:1.0: 1 port detected
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.404872] usbcore: registered new interface driver usb-storage
+[2026年7月23日 GMT+8 12:04:34] kern.info: [    3.406374] usbcore: registered new interface driver uas
+[2026年7月23日 GMT+8 12:04:34] user.info: [    3.410545] kmodloader: done loading kernel modules from /etc/modules-boot.d/*
+[2026年7月23日 GMT+8 12:04:34] user.info: [    3.420747] init: - preinit -
+[2026年7月23日 GMT+8 12:04:34] kern.notice: [   10.270879] random: crng init done
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   10.692169] nss-dp 3a001400.dp3 lan1: PHY Link up speed: 1000
+[2026年7月23日 GMT+8 12:04:34] user.warn: [   15.037376] Scanning for Btrfs filesystems
+[2026年7月23日 GMT+8 12:04:34] user.info: [   15.165512] mount_root: loading kmods from internal overlay
+[2026年7月23日 GMT+8 12:04:34] user.info: [   15.193550] kmodloader: loading kernel modules from /etc/modules-boot.d/*
+[2026年7月23日 GMT+8 12:04:34] user.info: [   15.197366] kmodloader: done loading kernel modules from /etc/modules-boot.d/*
+[2026年7月23日 GMT+8 12:04:34] user.info: [   15.318246] block: attempting to load /etc/config/fstab
+[2026年7月23日 GMT+8 12:04:34] user.err: [   15.320772] block: unable to load configuration (fstab: Entry not found)
+[2026年7月23日 GMT+8 12:04:34] user.err: [   15.322521] block: no usable configuration
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   15.330540] loop0: detected capacity change from 0 to 4194304
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   15.420888] loop0: detected capacity change from 4194304 to 4096128
+[2026年7月23日 GMT+8 12:04:34] user.info: [   15.421779] block: overlay filesystem in /dev/loop0 has not been formatted yet
+[2026年7月23日 GMT+8 12:04:34] kern.notice: [   19.093946] F2FS-fs (loop0): f2fs_recover_fsync_data: recovery fsync data, check_only: 0
+[2026年7月23日 GMT+8 12:04:34] kern.notice: [   19.094199] F2FS-fs (loop0): Mounted with checkpoint version = 6eb89b81
+[2026年7月23日 GMT+8 12:04:34] user.info: [   19.107871] block: attempting to load /etc/config/fstab
+[2026年7月23日 GMT+8 12:04:34] user.err: [   19.108051] block: unable to load configuration (fstab: Entry not found)
+[2026年7月23日 GMT+8 12:04:34] user.err: [   19.112747] block: no usable configuration
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   19.126900] loop0: detected capacity change from 0 to 4194304
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   19.170891] loop0: detected capacity change from 4194304 to 4096128
+[2026年7月23日 GMT+8 12:04:34] kern.notice: [   19.176286] F2FS-fs (loop0): f2fs_recover_fsync_data: recovery fsync data, check_only: 0
+[2026年7月23日 GMT+8 12:04:34] kern.notice: [   19.176558] F2FS-fs (loop0): Mounted with checkpoint version = 6eb89b83
+[2026年7月23日 GMT+8 12:04:34] user.info: [   19.275390] block: attempting to load /etc/config/fstab
+[2026年7月23日 GMT+8 12:04:34] user.err: [   19.275518] block: unable to load configuration (fstab: Entry not found)
+[2026年7月23日 GMT+8 12:04:34] user.err: [   19.279473] block: no usable configuration
+[2026年7月23日 GMT+8 12:04:34] user.info: [   19.287839] block: attempting to load /etc/config/fstab
+[2026年7月23日 GMT+8 12:04:34] user.err: [   19.290375] block: unable to load configuration (fstab: Entry not found)
+[2026年7月23日 GMT+8 12:04:34] user.err: [   19.295492] block: no usable configuration
+[2026年7月23日 GMT+8 12:04:34] user.info: [   19.303333] mount_root: overlay filesystem has not been fully initialized yet
+[2026年7月23日 GMT+8 12:04:34] user.info: [   19.306599] mount_root: switching to f2fs overlay
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [   19.317435] overlayfs: null uuid detected in lower fs '/', falling back to xino=off,index=off,nfs_export=off.
+[2026年7月23日 GMT+8 12:04:34] user.warn: [   19.321889] urandom-seed: Seed file not found (/etc/urandom.seed)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   19.703055] nss-dp 3a001400.dp3 lan1: PHY Link is down
+[2026年7月23日 GMT+8 12:04:34] user.info: [   19.708441] procd: - early -
+[2026年7月23日 GMT+8 12:04:34] user.info: [   19.708547] procd: - watchdog -
+[2026年7月23日 GMT+8 12:04:34] user.info: [   20.315110] procd: - watchdog -
+[2026年7月23日 GMT+8 12:04:34] user.info: [   20.318910] procd: - ubus -
+[2026年7月23日 GMT+8 12:04:34] user.info: [   20.474388] procd: - init -
+[2026年7月23日 GMT+8 12:04:34] user.info: [   20.920068] urngd: v1.0.2 started.
+[2026年7月23日 GMT+8 12:04:34] user.info: [   20.922006] kmodloader: loading kernel modules from /etc/modules.d/*
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   21.139561] tun: Universal TUN/TAP device driver, 1.6
+[2026年7月23日 GMT+8 12:04:34] user.notice: [   22.552801] hotplug: symlinking qca-nss0.bin to /lib/firmware/qca-nss0-retail.bin
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.651776] qca-nss 39000000.nss: NSS fw version: NSS.FW.12.5-210-CP.R
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.651817] qca-nss 39000000.nss: fw of size 862184 bytes copied to addr: 40000000, nss_id: 0
+[2026年7月23日 GMT+8 12:04:34] kern.alert: [   22.658930] ffffffc0795cece8: NSS core 0 DDR from 40000000 to 41000000
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.692091] qca-nss 39000000.nss: NSS core 0 booted successfully
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.789854] sit: IPv6, IPv4 and MPLS over IPv4 tunneling driver
+[2026年7月23日 GMT+8 12:04:34] kern.warn: [   22.796494] nat46: module (version unknown) loaded.
+[2026年7月23日 GMT+8 12:04:34] kern.notice: [   22.800022] <NSS-CRYPTO>:module loaded Build_ID - 07/29/26, 22:28:00 SoC=ipq60xx
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.808955] gre: GRE over IPv4 demultiplexer driver
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.811489] ip_gre: GRE over IPv4 tunneling driver
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.817287] ip6_gre: GRE over IPv6 tunneling driver
+[2026年7月23日 GMT+8 12:04:34] kern.notice: [   22.835299] nss_vlan_mgr_init_module[1939]:Module (Build Build Id: 07/29/26, 22:27:55) loaded
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.876213] PPP generic driver version 2.4.2
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.924450] NET: Registered PF_PPPOX protocol family
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.929742] PPTP driver version 0.8.5
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.941403] GACT probability on
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.943294] Mirror/redirect action on
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.955303] u32 classifier
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.955334]     input device check on
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.956901]     Actions configured
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.972366] ntfs3: Enabled Linux POSIX ACLs support
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.976953] fuse: init (API version 7.45)
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.979498] usbcore: registered new interface driver cdc_wdm
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.984117] usbcore: registered new interface driver qmi_wwan_q
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   22.988099] usbcore: registered new interface driver qmi_wwan_f
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.005542] usbcore: registered new interface driver asix
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.006836] usbcore: registered new interface driver ax88179_178a
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.011501] usbcore: registered new interface driver cdc_eem
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.017137] usbcore: registered new interface driver cdc_ether
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.023237] usbcore: registered new interface driver cdc_ncm
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.028151] usbcore: registered new interface driver cdc_subset
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.034709] usbcore: registered new interface driver huawei_cdc_ncm
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.042856] usbcore: registered new interface driver ipheth
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.051740] mc: Linux media interface: v0.10
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.064704] PPP MPPE Compression module registered
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.066674] usbcore: registered new interface driver qmi_wwan
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.070439] usbcore: registered new device driver r8152-cfgselector
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.074288] usbcore: registered new interface driver r8152
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.081622] usbcore: registered new interface driver rndis_host
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.086752] usbcore: registered new interface driver rtl8150
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.092727] usbcore: registered new interface driver sierra_net
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.100245] usbcore: registered new interface driver ums-alauda
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.104279] usbcore: registered new interface driver ums-cypress
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.110264] usbcore: registered new interface driver ums-datafab
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.116464] usbcore: registered new interface driver ums-freecom
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.122523] usbcore: registered new interface driver ums-isd200
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.128542] usbcore: registered new interface driver ums-jumpshot
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.134084] usbcore: registered new interface driver ums-karma
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.140608] usbcore: registered new interface driver ums-sddr09
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.146173] usbcore: registered new interface driver ums-sddr55
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.152056] usbcore: registered new interface driver ums-usbat
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.158966] usbcore: registered new interface driver usbserial_generic
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.162636] usbserial: USB Serial support registered for generic
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.171174] wireguard: WireGuard 1.0.0 loaded. See www.wireguard.com for information.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.175253] wireguard: Copyright (C) 2015-2019 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.184231] usbcore: registered new interface driver cdc_mbim
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.238052] usbcore: registered new interface driver snd-usb-audio
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.244801] usbcore: registered new interface driver qcserial
+[2026年7月23日 GMT+8 12:04:34] kern.info: [   23.244875] usbserial: USB Serial support registered for Qualcomm USB modem
+[2026年7月23日 GMT+8 12:04:34] user.info: [   23.250101] kmodloader: done loading kernel modules from /etc/modules.d/*
+[2026年7月23日 GMT+8 12:04:34] daemon.notice: procd: /etc/rc.d/S13openssl: Generating engines.cnf
+[2026年7月23日 GMT+8 12:04:34] daemon.notice: procd: /etc/rc.d/S13openssl: Generating providers.cnf
+[2026年7月23日 GMT+8 12:04:34] daemon.notice: procd: /etc/rc.d/S13openssl: Enabling legacy
+[2026年7月23日 GMT+8 12:04:35] user.notice: dnsmasq: DNS rebinding protection is active, will discard upstream RFC1918 responses!
+[2026年7月23日 GMT+8 12:04:35] user.notice: dnsmasq: Allowing 127.0.0.0/8 responses
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: started, version 2.93 cachesize 8000
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: DNS service limited to local subnets
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: compile time options: IPv6 GNU-getopt no-DBus UBus no-i18n no-IDN DHCP DHCPv6 no-Lua TFTP conntrack no-ipset nftset auth DNSSEC no-ID loop-detect inotify dumpfile
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: UBus support enabled: connected to system bus
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: using only locally-known addresses for test
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: using only locally-known addresses for onion
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: using only locally-known addresses for localhost
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: using only locally-known addresses for local
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: using only locally-known addresses for invalid
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: using only locally-known addresses for bind
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: using only locally-known addresses for lan
+[2026年7月23日 GMT+8 12:04:35] daemon.warn: dnsmasq[1]: no servers found in /tmp/resolv.conf.d/resolv.conf.auto, will retry
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: read /etc/hosts - 12 names
+[2026年7月23日 GMT+8 12:04:35] daemon.info: dnsmasq[1]: read /tmp/hosts/dhcp.cfg01411c - 0 names
+[2026年7月23日 GMT+8 12:04:38] user.notice: : Added device handler type: vrf
+[2026年7月23日 GMT+8 12:04:38] user.notice: : Added device handler type: bonding
+[2026年7月23日 GMT+8 12:04:38] user.notice: : Added device handler type: 8021ad
+[2026年7月23日 GMT+8 12:04:38] user.notice: : Added device handler type: 8021q
+[2026年7月23日 GMT+8 12:04:38] user.notice: : Added device handler type: macvlan
+[2026年7月23日 GMT+8 12:04:38] user.notice: : Added device handler type: veth
+[2026年7月23日 GMT+8 12:04:38] user.notice: : Added device handler type: bridge
+[2026年7月23日 GMT+8 12:04:38] user.notice: : Added device handler type: Network device
+[2026年7月23日 GMT+8 12:04:38] user.notice: : Added device handler type: tunnel
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: wpa_supplicant[2916]: Successfully initialized wpa_supplicant
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: hostapd: Set MLD config: [ ]
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: wpa_supplicant[2916]: Set MLD config: [ ]
+[2026年7月23日 GMT+8 12:04:38] kern.info: [   34.377208] br-lan: port 1(lan1) entered blocking state
+[2026年7月23日 GMT+8 12:04:38] kern.info: [   34.377255] br-lan: port 1(lan1) entered disabled state
+[2026年7月23日 GMT+8 12:04:38] kern.info: [   34.381367] nss-dp 3a001400.dp3 lan1: entered allmulticast mode
+[2026年7月23日 GMT+8 12:04:38] kern.info: [   34.386755] nss-dp 3a001400.dp3 lan1: entered promiscuous mode
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: netifd: Interface 'lan' is enabled
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: netifd: Interface 'lan' is setting up now
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: netifd: Interface 'lan' is now up
+[2026年7月23日 GMT+8 12:04:38] kern.info: [   34.400445] br-lan: port 2(lan2) entered blocking state
+[2026年7月23日 GMT+8 12:04:38] kern.info: [   34.400485] br-lan: port 2(lan2) entered disabled state
+[2026年7月23日 GMT+8 12:04:38] kern.info: [   34.404579] nss-dp 3a001600.dp4 lan2: entered allmulticast mode
+[2026年7月23日 GMT+8 12:04:38] kern.info: [   34.409940] nss-dp 3a001600.dp4 lan2: entered promiscuous mode
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: netifd: Interface 'loopback' is enabled
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: netifd: Interface 'loopback' is setting up now
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: netifd: Interface 'loopback' is now up
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: netifd: Interface 'wan' is enabled
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: netifd: Interface 'wan6' is enabled
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: netifd: Network device 'lo' link is up
+[2026年7月23日 GMT+8 12:04:38] daemon.notice: netifd: Interface 'loopback' has link connectivity
+[2026年7月23日 GMT+8 12:04:38] user.notice: firewall: Reloading firewall due to ifup of lan (br-lan)
+[2026年7月23日 GMT+8 12:04:38] kern.info: [   34.513236] ECM init: selected_front_end=1, register_ip_post_routing=1, register_br_post_routing=1
+[2026年7月23日 GMT+8 12:04:38] kern.info: [   34.513314] ECM database jhash random seed: 0x9f0ec41c
+[2026年7月23日 GMT+8 12:04:38] kern.info: [   34.522130] ECM init complete
+[2026年7月23日 GMT+8 12:04:39] daemon.notice: procd: /etc/rc.d/S26qca-nss-ecm: dev.nss.general.redirect = 1
+[2026年7月23日 GMT+8 12:04:39] user.notice: qca-nss-drv: Pinning IRQ(43) nss_queue0               to CPU 0 (NSS Core 0)
+[2026年7月23日 GMT+8 12:04:39] user.notice: qca-nss-drv: Pinning IRQ(44) nss_queue1               to CPU 1 (NSS Core 0)
+[2026年7月23日 GMT+8 12:04:39] user.notice: qca-nss-drv: Pinning IRQ(45) nss_queue2               to CPU 2 (NSS Core 0)
+[2026年7月23日 GMT+8 12:04:39] user.notice: qca-nss-drv: Pinning IRQ(46) nss_queue3               to CPU 3 (NSS Core 0)
+[2026年7月23日 GMT+8 12:04:39] user.notice: qca-nss-drv: Pinning IRQ(40) nss_empty_buf_sos        to CPU 0 (NSS Core 0)
+[2026年7月23日 GMT+8 12:04:39] user.notice: qca-nss-drv: Pinning IRQ(41) nss_empty_buf_queue      to CPU 0 (NSS Core 0)
+[2026年7月23日 GMT+8 12:04:39] user.notice: qca-nss-drv: Pinning IRQ(39) xhci-hcd:usb1            to CPU 2
+[2026年7月23日 GMT+8 12:04:39] kern.info: [   34.917597] nss_nl_init[515]:NSS Netlink manager loaded: Build Id: 07/29/26, 22:28:09
+[2026年7月23日 GMT+8 12:04:39] kern.info: [   34.917790] qca-nss-netlink: no Wi-Fi runtime detected; skipping wifili family
+[2026年7月23日 GMT+8 12:04:39] user.notice: skb_recycler: Enabling skb_recycler
+[2026年7月23日 GMT+8 12:04:39] user.notice: skb_recycler: Setting max_skbs to 1024
+[2026年7月23日 GMT+8 12:04:39] user.notice: skb_recycler: Setting max_spare_skbs to 256
+[2026年7月23日 GMT+8 12:04:39] cron.err: crond[3592]: crond (busybox 1.38.0) started, log level 7
+[2026年7月23日 GMT+8 12:04:39] daemon.info: dropbear: Using network interface 'lan' (network device 'br-lan') for direct binding
+[2026年7月23日 GMT+8 12:04:40] user.info: : Binding to interface 'br-lan'
+[2026年7月23日 GMT+8 12:04:40] authpriv.info: dropbear[3907]: Not backgrounding
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dbus-daemon[3806]: jail: exec-ing /usr/bin/dbus-daemon
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: Found user 'avahi' (UID 105) and group 'avahi' (GID 105).
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: Successfully dropped root privileges.
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: avahi-daemon 0.9-rc5 starting up.
+[2026年7月23日 GMT+8 12:04:40] daemon.warn: avahi-daemon[3915]: WARNING: No NSS support for mDNS detected, consider installing nss-mdns!
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: No service file found in /etc/avahi/services.
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: Joining mDNS multicast group on interface br-lan.IPv4 with address 192.168.10.1.
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: New relevant interface br-lan.IPv4 for mDNS.
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: Joining mDNS multicast group on interface lo.IPv6 with address ::1.
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: New relevant interface lo.IPv6 for mDNS.
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: Joining mDNS multicast group on interface lo.IPv4 with address 127.0.0.1.
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: New relevant interface lo.IPv4 for mDNS.
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: Network interface enumeration completed.
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: Registering new address record for 192.168.10.1 on br-lan.IPv4.
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: Registering new address record for ::1 on lo.*.
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: Registering new address record for 127.0.0.1 on lo.IPv4.
+[2026年7月23日 GMT+8 12:04:40] daemon.info: avahi-daemon[3915]: Registering HINFO record with values 'AARCH64'/'LINUX'.
+[2026年7月23日 GMT+8 12:04:40] user.notice: ucitrack: Setting up /etc/config/luci-splash reload dependency on /etc/config/firewall
+[2026年7月23日 GMT+8 12:04:40] user.notice: ucitrack: Setting up /etc/config/qos reload dependency on /etc/config/firewall
+[2026年7月23日 GMT+8 12:04:40] user.notice: ucitrack: Setting up /etc/config/miniupnpd reload dependency on /etc/config/firewall
+[2026年7月23日 GMT+8 12:04:40] user.notice: ucitrack: Setting up /etc/config/odhcpd reload dependency on /etc/config/dhcp
+[2026年7月23日 GMT+8 12:04:40] user.notice: ucitrack: Setting up /etc/config/dhcp reload dependency on /etc/config/network
+[2026年7月23日 GMT+8 12:04:40] user.notice: ucitrack: Setting up /etc/config/network reload dependency on /etc/config/wireless
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: exiting on receipt of SIGTERM
+[2026年7月23日 GMT+8 12:04:40] user.notice: ucitrack: Setting up non-init /etc/config/fstab reload handler: /sbin/block mount
+[2026年7月23日 GMT+8 12:04:40] daemon.err: procd: Got unexpected signal 1
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: started, version 2.93 cachesize 8000
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: DNS service limited to local subnets
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: compile time options: IPv6 GNU-getopt no-DBus UBus no-i18n no-IDN DHCP DHCPv6 no-Lua TFTP conntrack no-ipset nftset auth DNSSEC no-ID loop-detect inotify dumpfile
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: UBus support enabled: connected to system bus
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq-dhcp[1]: DHCP, IP range 192.168.10.100 -- 192.168.10.249, lease time 12h
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: using only locally-known addresses for test
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: using only locally-known addresses for onion
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: using only locally-known addresses for localhost
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: using only locally-known addresses for local
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: using only locally-known addresses for invalid
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: using only locally-known addresses for bind
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: using only locally-known addresses for lan
+[2026年7月23日 GMT+8 12:04:40] daemon.warn: dnsmasq[1]: no servers found in /tmp/resolv.conf.d/resolv.conf.auto, will retry
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: read /etc/hosts - 12 names
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq[1]: read /tmp/hosts/dhcp.cfg01411c - 2 names
+[2026年7月23日 GMT+8 12:04:40] daemon.info: dnsmasq-dhcp[1]: read /etc/ethers - 0 addresses
+[2026年7月23日 GMT+8 12:04:40] user.notice: ucitrack: Setting up /etc/config/system reload trigger for non-procd /etc/init.d/led
+[2026年7月23日 GMT+8 12:04:40] user.notice: ucitrack: Setting up /etc/config/luci_statistics reload dependency on /etc/config/system
+[2026年7月23日 GMT+8 12:04:40] user.notice: ucitrack: Setting up /etc/config/dhcp reload dependency on /etc/config/system
+[2026年7月23日 GMT+8 12:04:41] user.notice: smp_affinity: Pinning IRQ(35) edma_rxdesc              to CPU 1
+[2026年7月23日 GMT+8 12:04:41] user.notice: smp_affinity: Pinning IRQ(33) edma_txcmpl              to CPU 2
+[2026年7月23日 GMT+8 12:04:41] daemon.info: avahi-daemon[3915]: Server startup complete. Host name is OWRT.local. Local service cookie is 2030465363.
+[2026年7月23日 GMT+8 12:04:41] daemon.err: usbmuxd[4636]: [12:04:41.264][3] usbmuxd v2025.02.01~523f7004 starting up
+[2026年7月23日 GMT+8 12:04:41] daemon.err: usbmuxd[4636]: [12:04:41.265][3] Using libusb 1.0.29
+[2026年7月23日 GMT+8 12:04:41] daemon.err: usbmuxd[4636]: [12:04:41.266][3] Initialization complete
+[2026年7月23日 GMT+8 12:04:41] daemon.err: usbmuxd[4636]: [12:04:41.266][3] Enabled exit on SIGUSR1 if no devices are attached. Start a new instance with "--exit" to trigger.
+[2026年7月23日 GMT+8 12:04:41] kern.warn: [   36.837651] Frequency Set to 748800000
+[2026年7月23日 GMT+8 12:04:42] daemon.info: urandom_seed[5133]: Seed saved (/etc/urandom.seed)
+[2026年7月23日 GMT+8 12:04:42] daemon.err: smbd[4821]: [2026/07/23 12:04:42.822638,  0] ../../source3/passdb/pdb_smbpasswd.c:250(startsmbfilepwent)
+[2026年7月23日 GMT+8 12:04:42] daemon.err: smbd[4821]: startsmbfilepwent_internal: file /etc/samba/smbpasswd did not exist. File successfully created.
+[2026年7月23日 GMT+8 12:04:42] kern.info: [   38.551931] nss-dp 3a001400.dp3 lan1: PHY Link up speed: 1000
+[2026年7月23日 GMT+8 12:04:42] kern.info: [   38.552945] br-lan: port 1(lan1) entered blocking state
+[2026年7月23日 GMT+8 12:04:42] kern.info: [   38.556671] br-lan: port 1(lan1) entered forwarding state
+[2026年7月23日 GMT+8 12:04:42] daemon.notice: netifd: Network device 'lan1' link is up
+[2026年7月23日 GMT+8 12:04:42] daemon.notice: netifd: bridge 'br-lan' link is up
+[2026年7月23日 GMT+8 12:04:42] daemon.notice: netifd: Interface 'lan' has link connectivity
+[2026年7月23日 GMT+8 12:04:44] daemon.info: avahi-daemon[3915]: Joining mDNS multicast group on interface br-lan.IPv6 with address fe80::fa5e:3cff:fe4c:507a.
+[2026年7月23日 GMT+8 12:04:44] daemon.info: avahi-daemon[3915]: New relevant interface br-lan.IPv6 for mDNS.
+[2026年7月23日 GMT+8 12:04:44] daemon.info: avahi-daemon[3915]: Registering new address record for fe80::fa5e:3cff:fe4c:507a on br-lan.*.
+[2026年7月23日 GMT+8 12:04:44] daemon.info: dnsmasq[1]: read /etc/hosts - 12 names
+[2026年7月23日 GMT+8 12:04:44] daemon.info: dnsmasq[1]: read /tmp/hosts/dhcp.cfg01411c - 2 names
+[2026年7月23日 GMT+8 12:04:44] daemon.info: dnsmasq-dhcp[1]: read /etc/ethers - 0 addresses
+[2026年7月23日 GMT+8 12:04:44] daemon.info: dnsmasq-dhcp[1]: DHCPREQUEST(br-lan) 192.168.1.190 e0:d5:5e:e3:b5:e3
+[2026年7月23日 GMT+8 12:04:44] daemon.info: dnsmasq-dhcp[1]: DHCPNAK(br-lan) 192.168.1.190 e0:d5:5e:e3:b5:e3 wrong network
+[2026年7月23日 GMT+8 12:04:45] daemon.info: dropbear: Using network interface 'lan' (network device 'br-lan') for direct binding
+[2026年7月23日 GMT+8 12:04:47] daemon.warn: odhcpd[3436]: A default route is present but there is no public prefix on lan thus we announce no default route by setting ra_lifetime to 0!
+[2026年7月23日 GMT+8 12:04:47] daemon.info: procd: - init complete -
+[2026年7月23日 GMT+8 12:04:47] daemon.info: dnsmasq-dhcp[1]: DHCPDISCOVER(br-lan) e0:d5:5e:e3:b5:e3
+[2026年7月23日 GMT+8 12:04:47] daemon.info: dnsmasq-dhcp[1]: DHCPOFFER(br-lan) 192.168.10.210 e0:d5:5e:e3:b5:e3
+[2026年7月23日 GMT+8 12:04:47] daemon.info: dnsmasq-dhcp[1]: DHCPREQUEST(br-lan) 192.168.10.210 e0:d5:5e:e3:b5:e3
+[2026年7月23日 GMT+8 12:04:47] daemon.info: dnsmasq-dhcp[1]: DHCPACK(br-lan) 192.168.10.210 e0:d5:5e:e3:b5:e3 PC
+[2026年7月23日 GMT+8 12:04:51] daemon.warn: odhcpd[3436]: A default route is present but there is no public prefix on lan thus we announce no default route by setting ra_lifetime to 0!
+[2026年7月23日 GMT+8 12:04:51] authpriv.info: dispatcher.uc: luci: accepted login on / for root from 192.168.10.210
+[    0.000000] Booting Linux on physical CPU 0x0000000000 [0x51af8014]
+[    0.000000] Linux version 6.18.39 (runner@runnervmvrwv9) (aarch64-openwrt-linux-musl-gcc (OpenWrt GCC 14.4.0 r0-a4638cd) 14.4.0, GNU ld (GNU Binutils) 2.46.1) #0 SMP Thu Jul 23 04:04:25 2026
+[    0.000000] Machine model: Link NN6000 v1
+[    0.000000] OF: reserved mem: 0x0000000000060000..0x0000000000065fff (24 KiB) nomap non-reusable rpm_msg_ram@60000
+[    0.000000] OF: reserved mem: 0x0000000040000000..0x0000000040ffffff (16384 KiB) nomap non-reusable nss@40000000
+[    0.000000] OF: reserved mem: 0x000000004a100000..0x000000004a4fffff (4096 KiB) nomap non-reusable bootloader@4a100000
+[    0.000000] OF: reserved mem: 0x000000004a600000..0x000000004a9fffff (4096 KiB) nomap non-reusable tz@4a600000
+[    0.000000] OF: reserved mem: 0x000000004aa00000..0x000000004aafffff (1024 KiB) nomap non-reusable smem@4aa00000
+[    0.000000] OF: reserved mem: 0x000000004ab00000..0x000000004bafffff (16384 KiB) nomap non-reusable q6@4ab00000
+[    0.000000] OF: reserved mem: 0x000000004bb00000..0x000000004bbfffff (1024 KiB) nomap non-reusable q6_etr@4eb00000
+[    0.000000] OF: reserved mem: 0x000000004bc00000..0x000000004bcfffff (1024 KiB) nomap non-reusable m3_dump@4ec00000
+[    0.000000] OF: reserved mem: 0x000000004bd00000..0x000000004bdfffff (1024 KiB) nomap non-reusable ramoops@4ed00000
+[    0.000000] Zone ranges:
+[    0.000000]   DMA      [mem 0x0000000040000000-0x00000000bfffffff]
+[    0.000000]   DMA32    empty
+[    0.000000]   Normal   empty
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000040000000-0x0000000040ffffff]
+[    0.000000]   node   0: [mem 0x0000000041000000-0x000000004a0fffff]
+[    0.000000]   node   0: [mem 0x000000004a100000-0x000000004a4fffff]
+[    0.000000]   node   0: [mem 0x000000004a500000-0x000000004a5fffff]
+[    0.000000]   node   0: [mem 0x000000004a600000-0x000000004bdfffff]
+[    0.000000]   node   0: [mem 0x000000004be00000-0x00000000bfffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000040000000-0x00000000bfffffff]
+[    0.000000] psci: probing for conduit method from DT.
+[    0.000000] psci: PSCIv1.0 detected in firmware.
+[    0.000000] psci: Using standard PSCI v0.2 function IDs
+[    0.000000] psci: MIGRATE_INFO_TYPE not supported.
+[    0.000000] psci: SMC Calling Convention v1.0
+[    0.000000] percpu: Embedded 20 pages/cpu s44184 r8192 d29544 u81920
+[    0.000000] pcpu-alloc: s44184 r8192 d29544 u81920 alloc=20*4096
+[    0.000000] pcpu-alloc: [0] 0 [0] 1 [0] 2 [0] 3 
+[    0.000000] Detected VIPT I-cache on CPU0
+[    0.000000] CPU features: detected: Spectre-v4
+[    0.000000] alternatives: applying boot alternatives
+[    0.000000] Kernel command line: console=ttyMSM0,115200n8 root=PARTUUID=694a68fc-16a5-fcdc-2dbf-90f9b69e536d gpt rootwait
+[    0.000000] printk: log buffer data + meta data: 131072 + 458752 = 589824 bytes
+[    0.000000] Dentry cache hash table entries: 262144 (order: 9, 2097152 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 131072 (order: 8, 1048576 bytes, linear)
+[    0.000000] software IO TLB: SWIOTLB bounce buffer size adjusted to 2MB
+[    0.000000] software IO TLB: area num 4.
+[    0.000000] software IO TLB: mapped [mem 0x00000000bd600000-0x00000000bd800000] (2MB)
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 524288
+[    0.000000] mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
+[    0.000000] rcu: Hierarchical RCU implementation.
+[    0.000000] 	Tracing variant of Tasks RCU enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 10 jiffies.
+[    0.000000] RCU Tasks Trace: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+[    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[    0.000000] Root IRQ handler: gic_handle_irq
+[    0.000000] GICv2m: range[mem 0x0b00a000-0x0b00affc], SPI[448:479]
+[    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.000000] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604462750000 ns
+[    0.000000] arch_timer: cp15 timer running at 24.00MHz (virt).
+[    0.000000] clocksource: arch_sys_counter: mask: 0xffffffffffffff max_cycles: 0x588fe9dc0, max_idle_ns: 440795202592 ns
+[    0.000000] sched_clock: 56 bits at 24MHz, resolution 41ns, wraps every 4398046511097ns
+[    0.000139] Calibrating delay loop (skipped), value calculated using timer frequency.. 48.00 BogoMIPS (lpj=240000)
+[    0.000151] pid_max: default: 32768 minimum: 301
+[    0.004356] Mount-cache hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[    0.004373] Mountpoint-cache hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[    0.014277] rcu: Hierarchical SRCU implementation.
+[    0.014286] rcu: 	Max phase no-delay instances is 1000.
+[    0.014569] Timer migration: 1 hierarchy levels; 8 children per group; 1 crossnode level
+[    0.014978] smp: Bringing up secondary CPUs ...
+[    0.015671] Detected VIPT I-cache on CPU1
+[    0.015817] CPU1: Booted secondary processor 0x0000000001 [0x51af8014]
+[    0.016568] Detected VIPT I-cache on CPU2
+[    0.016678] CPU2: Booted secondary processor 0x0000000002 [0x51af8014]
+[    0.017400] Detected VIPT I-cache on CPU3
+[    0.017506] CPU3: Booted secondary processor 0x0000000003 [0x51af8014]
+[    0.017584] smp: Brought up 1 node, 4 CPUs
+[    0.017592] SMP: Total of 4 processors activated.
+[    0.017597] CPU: All CPU(s) started at EL1
+[    0.017601] CPU features: detected: 32-bit EL0 Support
+[    0.017607] CPU features: detected: CRC32 instructions
+[    0.017652] alternatives: applying system-wide alternatives
+[    0.017864] CPU features: emulated: Privileged Access Never (PAN) using TTBR0_EL1 switching
+[    0.018121] Memory: 1991552K/2097152K available (9152K kernel code, 904K rwdata, 2988K rodata, 960K init, 287K bss, 102120K reserved, 0K cma-reserved)
+[    0.026198] posixtimers hash table entries: 2048 (order: 3, 32768 bytes, linear)
+[    0.026267] futex hash table entries: 1024 (65536 bytes on 1 NUMA nodes, total 64 KiB, linear).
+[    0.026343] 29136 pages in range for non-PLT usage
+[    0.026348] 520656 pages in range for PLT usage
+[    0.028686] pinctrl core: initialized pinctrl subsystem
+[    0.031025] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.031579] DMA: preallocated 256 KiB GFP_KERNEL pool for atomic allocations
+[    0.031637] DMA: preallocated 256 KiB GFP_KERNEL|GFP_DMA pool for atomic allocations
+[    0.031692] DMA: preallocated 256 KiB GFP_KERNEL|GFP_DMA32 pool for atomic allocations
+[    0.032076] thermal_sys: Registered thermal governor 'step_wise'
+[    0.032138] cpuidle: using governor menu
+[    0.032336] ASID allocator initialised with 65536 entries
+[    0.038680] /soc@0/interrupt-controller@b000000: Fixed dependency cycle(s) with /soc@0/interrupt-controller@b000000
+[    0.078177] SCSI subsystem initialized
+[    0.078402] usbcore: registered new interface driver usbfs
+[    0.078443] usbcore: registered new interface driver hub
+[    0.078483] usbcore: registered new device driver usb
+[    0.078806] qcom_scm: convention: smc arm 64
+[    0.080882] clocksource: Switched to clocksource arch_sys_counter
+[    0.084972] NET: Registered PF_INET protocol family
+[    0.085140] IP idents hash table entries: 32768 (order: 6, 262144 bytes, linear)
+[    0.088553] tcp_listen_portaddr_hash hash table entries: 1024 (order: 2, 16384 bytes, linear)
+[    0.088586] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    0.088609] TCP established hash table entries: 16384 (order: 5, 131072 bytes, linear)
+[    0.088769] TCP bind hash table entries: 16384 (order: 7, 524288 bytes, linear)
+[    0.089301] TCP: Hash tables configured (established 16384 bind 16384)
+[    0.089674] MPTCP token hash table entries: 2048 (order: 4, 49152 bytes, linear)
+[    0.089872] UDP hash table entries: 1024 (order: 4, 65536 bytes, linear)
+[    0.089965] UDP-Lite hash table entries: 1024 (order: 4, 65536 bytes, linear)
+[    0.090705] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    0.090746] PCI: CLS 0 bytes, default 64
+[    0.092320] workingset: timestamp_bits=46 max_order=19 bucket_order=0
+[    0.093121] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    0.093129] jffs2: version 2.2 (NAND) (SUMMARY) (LZMA) (RTIME) (CMODE_PRIORITY) (c) 2001-2006 Red Hat, Inc.
+[    0.099354] qcom-qmp-usb-phy 78000.ssphy: supply vdda-phy not found, using dummy regulator
+[    0.099497] qcom-qmp-usb-phy 78000.ssphy: supply vdda-pll not found, using dummy regulator
+[    0.100419] qcom-qusb2-phy 79000.qusb: supply vdd not found, using dummy regulator
+[    0.100576] qcom-qusb2-phy 79000.qusb: supply vdda-pll not found, using dummy regulator
+[    0.100615] qcom-qusb2-phy 79000.qusb: supply vdda-phy-dpdm not found, using dummy regulator
+[    0.108598] Serial: 8250/16550 driver, 2 ports, IRQ sharing disabled
+[    0.109528] msm_serial 78b1000.serial: msm_serial: detected port #0
+[    0.109626] msm_serial 78b1000.serial: uartclk = 1843200
+[    0.110144] 78b1000.serial: ttyMSM0 at MMIO 0x78b1000 (irq = 19, base_baud = 115200) is a MSM
+[    0.110221] msm_serial: console setup on port #0
+[    0.110268] printk: legacy console [ttyMSM0] enabled
+[    0.918426] msm_serial: driver initialized
+[    0.928323] loop: module loaded
+[    0.930540] spi_qup 78b5000.spi: IN:block:16, fifo:64, OUT:block:16, fifo:64
+[    0.945469] i2c_dev: i2c /dev entries driver
+[    0.951848] sdhci: Secure Digital Host Controller Interface driver
+[    0.951891] sdhci: Copyright(c) Pierre Ossman
+[    0.956927] sdhci-pltfm: SDHCI platform and OF driver helper
+[    0.963525] clocksource: arch_mmio_counter: mask: 0xffffffffffffff max_cycles: 0x588fe9dc0, max_idle_ns: 440795202592 ns
+[    0.967102] arch-timer-mmio b120000.timer: mmio timer running at 24.00MHz (virt)
+[    0.979735] remoteproc remoteproc0: releasing cd00000.remoteproc
+[    0.987656] NET: Registered PF_INET6 protocol family
+[    0.992959] Segment Routing with IPv6
+[    0.996306] In-situ OAM (IOAM) with IPv6
+[    0.999874] NET: Registered PF_PACKET protocol family
+[    1.004027] l2tp_core: L2TP core driver, V2.0
+[    1.008752] l2tp_netlink: L2TP netlink interface
+[    1.009334] mmc0: SDHCI controller on 7804000.mmc [7804000.mmc] using ADMA 64-bit
+[    1.013143] 8021q: 802.1Q VLAN Support v1.8
+[    1.058746] cpufreq: cpufreq_policy_online: CPU0: Running at unlisted initial frequency: 799999 kHz, changing to: 864000 kHz
+[    1.060278] remoteproc remoteproc0: cd00000.remoteproc is available
+[    1.069872] clk: Disabling unused clocks
+[    1.075655] check access for rdinit=/init failed: -2, ignoring
+[    1.075715] Waiting for root device PARTUUID=694a68fc-16a5-fcdc-2dbf-90f9b69e536d...
+[    1.136625] mmc0: new HS200 MMC card at address 0001
+[    1.137439] mmcblk0: mmc0:0001 08A391 7.28 GiB
+[    1.142589] GPT:Primary header alternate_lba != Alt. header my_lba
+[    1.144914] GPT:7634943 != 15269887
+[    1.151081] GPT:last_usable_lbas don't match.
+[    1.154457] GPT:7634910 != 15269854
+[    1.158969] GPT:disk_guids don't match.
+[    1.162280] GPT:num_partition_entries don't match: 0xc != 0x80
+[    1.166093] GPT:partition_entry_array_crc32 values don't match: 0x3acc3ff6 != 0x6f97f166
+[    1.172010] GPT:Primary header thinks Alt. header is not at the end of the disk.
+[    1.180245] GPT:7634943 != 15269887
+[    1.187627] GPT: Use GNU Parted to correct GPT errors.
+[    1.190857]  mmcblk0: p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11
+[    1.197133] mmcblk0boot0: mmc0:0001 08A391 4.00 MiB
+[    1.202682] mmcblk0boot1: mmc0:0001 08A391 4.00 MiB
+[    1.207000] mmcblk0rpmb: mmc0:0001 08A391 4.00 MiB, chardev (246:0)
+[    1.223549] VFS: Mounted root (squashfs filesystem) readonly on device 179:11.
+[    1.223903] Freeing unused kernel memory: 960K
+[    1.229752] Run /sbin/init as init process
+[    1.234139]   with arguments:
+[    1.234146]     /sbin/init
+[    1.234151]   with environment:
+[    1.234155]     HOME=/
+[    1.234161]     TERM=linux
+[    1.483592] init: Console is alive
+[    1.483734] init: - watchdog -
+[    2.371870] kmodloader: loading kernel modules from /etc/modules-boot.d/*
+[    2.400789] raid6: skipped pq benchmark and selected neonx8
+[    2.400828] raid6: using neon recovery algorithm
+[    2.406832] xor: measuring software checksum speed
+[    2.411060]    8regs           :  3194 MB/sec
+[    2.415628]    32regs          :  3287 MB/sec
+[    2.420153]    arm64_neon      :  2996 MB/sec
+[    2.423411] xor: using function: 32regs (3287 MB/sec)
+[    2.501819] Btrfs loaded, zoned=no, fsverity=no
+[    2.534087] gpio_button_hotplug: loading out-of-tree module taints kernel.
+[    2.534756] ipq6018-pinctrl 1000000.pinctrl: pin GPIO_42 already requested by 78b7000.i2c; cannot claim for 1000000.pinctrl:554
+[    2.539872] ipq6018-pinctrl 1000000.pinctrl: error -EINVAL: pin-42 (1000000.pinctrl:554)
+[    2.551260] gpio-keys keys: probe with driver gpio-keys failed with error -22
+[    2.647913] ssdk_dt_parse_interrupt[1089]:INFO:link-intr-gpio is not defined, link polling is enabled
+[    2.811369] __adpt_hppe_uniphy_psgmii_mode_set[1245]:INFO:uniphy 0 psgmii channel selection
+[    2.926240] regi_init[2000]:INFO:Initializing CPPE Done!!
+[    2.926360] regi_init[2045]:INFO:qca-ssdk module init succeeded!
+[    2.933638] EDMA ver 1 hw init
+[    2.936904] EDMA HW Reset completed succesfully
+[    2.939577] Num rings - TxDesc:1 (23-23) TxCmpl:1 (23-23)
+[    2.943998] RxDesc:1 (15-15) RxFill:1 (7-7)
+[    3.121832] Qualcomm QCA8075 90000.mdio-1:01: attached PHY driver (mii_bus:phy_addr=90000.mdio-1:01, irq=POLL)
+[    3.191410] Qualcomm QCA8075 90000.mdio-1:02: attached PHY driver (mii_bus:phy_addr=90000.mdio-1:02, irq=POLL)
+[    3.271412] Qualcomm QCA8075 90000.mdio-1:03: attached PHY driver (mii_bus:phy_addr=90000.mdio-1:03, irq=POLL)
+[    3.272266] **********************************************************
+[    3.280315] * NSS Data Plane driver
+[    3.286848] **********************************************************
+[    3.297293] libata version 3.00 loaded.
+[    3.330810] xhci-hcd xhci-hcd.1.auto: xHCI Host Controller
+[    3.330886] xhci-hcd xhci-hcd.1.auto: new USB bus registered, assigned bus number 1
+[    3.336100] xhci-hcd xhci-hcd.1.auto: hcc params 0x0220fe65 hci version 0x110 quirks 0x0000808000000010
+[    3.342832] xhci-hcd xhci-hcd.1.auto: irq 39, io mem 0x08a00000
+[    3.352282] xhci-hcd xhci-hcd.1.auto: xHCI Host Controller
+[    3.358035] xhci-hcd xhci-hcd.1.auto: new USB bus registered, assigned bus number 2
+[    3.363595] xhci-hcd xhci-hcd.1.auto: Host supports USB 3.0 SuperSpeed
+[    3.371550] hub 1-0:1.0: USB hub found
+[    3.377745] hub 1-0:1.0: 1 port detected
+[    3.381729] usb usb2: We don't know the algorithms for LPM for this host, disabling LPM.
+[    3.385836] hub 2-0:1.0: USB hub found
+[    3.393677] hub 2-0:1.0: 1 port detected
+[    3.404872] usbcore: registered new interface driver usb-storage
+[    3.406374] usbcore: registered new interface driver uas
+[    3.410545] kmodloader: done loading kernel modules from /etc/modules-boot.d/*
+[    3.420747] init: - preinit -
+[   10.270879] random: crng init done
+[   10.692169] nss-dp 3a001400.dp3 lan1: PHY Link up speed: 1000
+[   15.037376] Scanning for Btrfs filesystems
+[   15.165512] mount_root: loading kmods from internal overlay
+[   15.193550] kmodloader: loading kernel modules from /etc/modules-boot.d/*
+[   15.197366] kmodloader: done loading kernel modules from /etc/modules-boot.d/*
+[   15.318246] block: attempting to load /etc/config/fstab
+[   15.320772] block: unable to load configuration (fstab: Entry not found)
+[   15.322521] block: no usable configuration
+[   15.330540] loop0: detected capacity change from 0 to 4194304
+[   15.420888] loop0: detected capacity change from 4194304 to 4096128
+[   15.421779] block: overlay filesystem in /dev/loop0 has not been formatted yet
+[   19.093946] F2FS-fs (loop0): f2fs_recover_fsync_data: recovery fsync data, check_only: 0
+[   19.094199] F2FS-fs (loop0): Mounted with checkpoint version = 6eb89b81
+[   19.107871] block: attempting to load /etc/config/fstab
+[   19.108051] block: unable to load configuration (fstab: Entry not found)
+[   19.112747] block: no usable configuration
+[   19.126900] loop0: detected capacity change from 0 to 4194304
+[   19.170891] loop0: detected capacity change from 4194304 to 4096128
+[   19.176286] F2FS-fs (loop0): f2fs_recover_fsync_data: recovery fsync data, check_only: 0
+[   19.176558] F2FS-fs (loop0): Mounted with checkpoint version = 6eb89b83
+[   19.275390] block: attempting to load /etc/config/fstab
+[   19.275518] block: unable to load configuration (fstab: Entry not found)
+[   19.279473] block: no usable configuration
+[   19.287839] block: attempting to load /etc/config/fstab
+[   19.290375] block: unable to load configuration (fstab: Entry not found)
+[   19.295492] block: no usable configuration
+[   19.303333] mount_root: overlay filesystem has not been fully initialized yet
+[   19.306599] mount_root: switching to f2fs overlay
+[   19.317435] overlayfs: null uuid detected in lower fs '/', falling back to xino=off,index=off,nfs_export=off.
+[   19.321889] urandom-seed: Seed file not found (/etc/urandom.seed)
+[   19.703055] nss-dp 3a001400.dp3 lan1: PHY Link is down
+[   19.708441] procd: - early -
+[   19.708547] procd: - watchdog -
+[   20.315110] procd: - watchdog -
+[   20.318910] procd: - ubus -
+[   20.474388] procd: - init -
+[   20.920068] urngd: v1.0.2 started.
+[   20.922006] kmodloader: loading kernel modules from /etc/modules.d/*
+[   21.139561] tun: Universal TUN/TAP device driver, 1.6
+[   22.552801] hotplug: symlinking qca-nss0.bin to /lib/firmware/qca-nss0-retail.bin
+[   22.651776] qca-nss 39000000.nss: NSS fw version: NSS.FW.12.5-210-CP.R
+[   22.651817] qca-nss 39000000.nss: fw of size 862184 bytes copied to addr: 40000000, nss_id: 0
+[   22.658930] ffffffc0795cece8: NSS core 0 DDR from 40000000 to 41000000
+[   22.692091] qca-nss 39000000.nss: NSS core 0 booted successfully
+[   22.789854] sit: IPv6, IPv4 and MPLS over IPv4 tunneling driver
+[   22.796494] nat46: module (version unknown) loaded.
+[   22.800022] <NSS-CRYPTO>:module loaded Build_ID - 07/29/26, 22:28:00 SoC=ipq60xx
+[   22.808955] gre: GRE over IPv4 demultiplexer driver
+[   22.811489] ip_gre: GRE over IPv4 tunneling driver
+[   22.817287] ip6_gre: GRE over IPv6 tunneling driver
+[   22.835299] nss_vlan_mgr_init_module[1939]:Module (Build Build Id: 07/29/26, 22:27:55) loaded
+[   22.876213] PPP generic driver version 2.4.2
+[   22.924450] NET: Registered PF_PPPOX protocol family
+[   22.929742] PPTP driver version 0.8.5
+[   22.941403] GACT probability on
+[   22.943294] Mirror/redirect action on
+[   22.955303] u32 classifier
+[   22.955334]     input device check on
+[   22.956901]     Actions configured
+[   22.972366] ntfs3: Enabled Linux POSIX ACLs support
+[   22.976953] fuse: init (API version 7.45)
+[   22.979498] usbcore: registered new interface driver cdc_wdm
+[   22.984117] usbcore: registered new interface driver qmi_wwan_q
+[   22.988099] usbcore: registered new interface driver qmi_wwan_f
+[   23.005542] usbcore: registered new interface driver asix
+[   23.006836] usbcore: registered new interface driver ax88179_178a
+[   23.011501] usbcore: registered new interface driver cdc_eem
+[   23.017137] usbcore: registered new interface driver cdc_ether
+[   23.023237] usbcore: registered new interface driver cdc_ncm
+[   23.028151] usbcore: registered new interface driver cdc_subset
+[   23.034709] usbcore: registered new interface driver huawei_cdc_ncm
+[   23.042856] usbcore: registered new interface driver ipheth
+[   23.051740] mc: Linux media interface: v0.10
+[   23.064704] PPP MPPE Compression module registered
+[   23.066674] usbcore: registered new interface driver qmi_wwan
+[   23.070439] usbcore: registered new device driver r8152-cfgselector
+[   23.074288] usbcore: registered new interface driver r8152
+[   23.081622] usbcore: registered new interface driver rndis_host
+[   23.086752] usbcore: registered new interface driver rtl8150
+[   23.092727] usbcore: registered new interface driver sierra_net
+[   23.100245] usbcore: registered new interface driver ums-alauda
+[   23.104279] usbcore: registered new interface driver ums-cypress
+[   23.110264] usbcore: registered new interface driver ums-datafab
+[   23.116464] usbcore: registered new interface driver ums-freecom
+[   23.122523] usbcore: registered new interface driver ums-isd200
+[   23.128542] usbcore: registered new interface driver ums-jumpshot
+[   23.134084] usbcore: registered new interface driver ums-karma
+[   23.140608] usbcore: registered new interface driver ums-sddr09
+[   23.146173] usbcore: registered new interface driver ums-sddr55
+[   23.152056] usbcore: registered new interface driver ums-usbat
+[   23.158966] usbcore: registered new interface driver usbserial_generic
+[   23.162636] usbserial: USB Serial support registered for generic
+[   23.171174] wireguard: WireGuard 1.0.0 loaded. See www.wireguard.com for information.
+[   23.175253] wireguard: Copyright (C) 2015-2019 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
+[   23.184231] usbcore: registered new interface driver cdc_mbim
+[   23.238052] usbcore: registered new interface driver snd-usb-audio
+[   23.244801] usbcore: registered new interface driver qcserial
+[   23.244875] usbserial: USB Serial support registered for Qualcomm USB modem
+[   23.250101] kmodloader: done loading kernel modules from /etc/modules.d/*
+[   34.377208] br-lan: port 1(lan1) entered blocking state
+[   34.377255] br-lan: port 1(lan1) entered disabled state
+[   34.381367] nss-dp 3a001400.dp3 lan1: entered allmulticast mode
+[   34.386755] nss-dp 3a001400.dp3 lan1: entered promiscuous mode
+[   34.400445] br-lan: port 2(lan2) entered blocking state
+[   34.400485] br-lan: port 2(lan2) entered disabled state
+[   34.404579] nss-dp 3a001600.dp4 lan2: entered allmulticast mode
+[   34.409940] nss-dp 3a001600.dp4 lan2: entered promiscuous mode
+[   34.513236] ECM init: selected_front_end=1, register_ip_post_routing=1, register_br_post_routing=1
+[   34.513314] ECM database jhash random seed: 0x9f0ec41c
+[   34.522130] ECM init complete
+[   34.917597] nss_nl_init[515]:NSS Netlink manager loaded: Build Id: 07/29/26, 22:28:09
+[   34.917790] qca-nss-netlink: no Wi-Fi runtime detected; skipping wifili family
+[   36.837651] Frequency Set to 748800000
+[   38.551931] nss-dp 3a001400.dp3 lan1: PHY Link up speed: 1000
+[   38.552945] br-lan: port 1(lan1) entered blocking state
+[   38.556671] br-lan: port 1(lan1) entered forwarding state
