@@ -191,47 +191,87 @@ uci delete network.wan6_dev 2>/dev/null
 # ---------- 2. 自定义三个物理口 MAC 地址 + br-lan 网桥 MAC 跟随 ----------
 # 用户指定：lan1=f8:5e:3c:4c:50:7a  lan2=f8:5e:3c:4c:50:7b  lan3=f8:5e:3c:4c:50:7c
 # 说明：
-#   - 三个物理口分别设置（netifd protocol: none, force_link: 1）
-#   - br-lan 网桥 MAC 显式设置成跟 lan1 一致，避免网桥自动取最小值算法导致
-#     每次重启 MAC 漂移
+#   - 三个物理口分别写死 MAC
+#   - br-lan 网桥 MAC 显式设置成跟 lan1 一致，避免网桥 MAC 选举重启漂移
 #   - 第 1 字节 0xf8 = 11111000，最低位=0（单播 MAC，合法）
-#   - 前 5 字节 f8:5e:3c:4c:50 与原厂 OUI 完全一致，最后 1 字节 7a/7b/7c 递增，
-#     不会和同设备原厂三个口的 79/7a/7b 撞，三个口互相之间也不撞
+#   - 前 5 字节 f8:5e:3c:4c:50 与原厂 OUI 一致，最后 1 字节 7a/7b/7c，
+#     与原厂 79/7a/7b 错开，互不冲突
 LAN1_MAC='f8:5e:3c:4c:50:7a'
 LAN2_MAC='f8:5e:3c:4c:50:7b'
 LAN3_MAC='f8:5e:3c:4c:50:7c'
 BR_LAN_MAC=$LAN1_MAC
 
-# --- 三个物理口：用 uci device 声明，强制 MAC + 强制 link up ---
-# 先清除可能残留的 lan1/lan2/lan3 device section 历史残留
+# --- 三个物理口：以「匿名 device section」+ option name = 接口名 形式声明 ---
+# （注意：这里不用有名字的 section，因为我们只需要 netifd 根据 option name
+#  去匹配内核创建出来的 lan1/lan2/lan3 接口即可。
+#  有名字 section 会导致和 board.d 自动生成的匿名 section 显示上重复，
+#  但这里物理口 board.d 不会生成 device section，所以匿名/有名字都可以，
+#  这里用匿名最干净。）
+
+# 先清理可能残留的命名 device section（来自上一版错误写法）
 uci delete network.lan1 2>/dev/null
 uci delete network.lan2 2>/dev/null
 uci delete network.lan3 2>/dev/null
-
-uci set network.lan1='device'
-uci set network.lan1.name='lan1'
-uci set network.lan1.macaddr="$LAN1_MAC"
-
-uci set network.lan2='device'
-uci set network.lan2.name='lan2'
-uci set network.lan2.macaddr="$LAN2_MAC"
-
-uci set network.lan3='device'
-uci set network.lan3.name='lan3'
-uci set network.lan3.macaddr="$LAN3_MAC"
-
-# --- br-lan 网桥：强制跟随 lan1 的自定义 MAC ---
-# network.lan.device 对应网桥设备名（默认 br-lan），
-# 这里直接通过 device section 'br-lan' 设置 macaddr 最稳
 uci delete network.br_lan 2>/dev/null
-uci set network.br_lan='device'
-uci set network.br_lan.name='br-lan'
-uci set network.br_lan.type='bridge'
-uci set network.br_lan.macaddr="$BR_LAN_MAC"
-# 把三个物理口明确挂到 br-lan，不依赖 board.d 自动生成
-uci set network.br_lan.ports='lan1 lan2 lan3'
+# 再清理可能残留的重名匿名 device section（有 name=lan1/lan2/lan3/br-lan 但多余的）
+_idx=0
+while uci -q get "network.@device[$_idx].name" > /dev/null 2>&1; do
+  _name=$(uci -q get "network.@device[$_idx].name" 2>/dev/null)
+  case "$_name" in
+    lan1|lan2|lan3)
+      # 物理口：删掉老的匿名 section（我们下面重建）
+      uci -q delete "network.@device[$_idx]" 2>/dev/null || true
+      ;;
+    br-lan)
+      # 网桥：删掉重复出现的第二个以后的匿名 section，留第一个 board.d 生成的
+      if [ -n "$_seen_brlan" ]; then
+        uci -q delete "network.@device[$_idx]" 2>/dev/null || true
+      else
+        _seen_brlan=1
+      fi
+      ;;
+  esac
+  _idx=$((_idx + 1))
+done
 
-# 确保 network.lan（逻辑接口）绑定的 device 就是 br-lan
+# 重建 3 个物理口的匿名 device section（只写 MAC）
+uci add network device > /dev/null
+uci set "network.@device[-1].name='lan1'"
+uci set "network.@device[-1].macaddr='$LAN1_MAC'"
+
+uci add network device > /dev/null
+uci set "network.@device[-1].name='lan2'"
+uci set "network.@device[-1].macaddr='$LAN2_MAC'"
+
+uci add network device > /dev/null
+uci set "network.@device[-1].name='lan3'"
+uci set "network.@device[-1].macaddr='$LAN3_MAC'"
+
+# --- br-lan 网桥：只改 board.d 已经生成的那个匿名 device section ---
+#  绝对不新建第二个名为 br-lan 的 device section，
+#  否则 LuCI「网络-接口-设备」页面会显示两个 br-lan（上一版就是踩了这个坑）。
+#  board.d 生成的内容一般在第 1 个或第 2 个 device section，带 name='br-lan'
+#  且 type='bridge'，已经写好 list ports lan1/lan2/lan3。
+#  我们只往这个 section 里追加 macaddr，其它不动。
+_idx=0
+while uci -q get "network.@device[$_idx].name" > /dev/null 2>&1; do
+  if [ "$(uci -q get "network.@device[$_idx].name" 2>/dev/null)" = "br-lan" ]; then
+    uci set "network.@device[$_idx].macaddr='$BR_LAN_MAC'"
+    # 保险起见：确认 ports 里包含 lan1/lan2/lan3；没有就补上
+    _ports=$(uci -q get "network.@device[$_idx].ports" 2>/dev/null)
+    if [ -z "$_ports" ]; then
+      # 新版 UCI 用 list ports，一个一个加
+      for _p in lan1 lan2 lan3; do
+        uci -q del_list "network.@device[$_idx].ports=$_p" 2>/dev/null
+        uci add_list "network.@device[$_idx].ports=$_p" 2>/dev/null || true
+      done
+    fi
+    break
+  fi
+  _idx=$((_idx + 1))
+done
+
+# 确保 network.lan（逻辑接口）绑定的 device 就是 br-lan（一般本来就是，保险写一遍）
 uci set network.lan.device='br-lan'
 
 # 首次启动也立即生效（在 uci commit 之前就把三个口刷上新 MAC，避免
