@@ -821,7 +821,7 @@ Heredoc 写完之后：
               macaddr=$BR_LAN_MAC（纯 MAC，不带额外引号，注意子坑9-b）
               / add_list ports=lan1 lan2 lan3
            → 最终 UCI 里匿名 device 必然 = 1 个（就是我们新建的那一个）。
-    → 子坑 9-c（backup-v4.3 修复，时序终局）：原子重建生效了，
+    → 子坑 9-c（backup-v4.3 尝试修复，backup-v5 移除）：原子重建生效了，
            @device[0] 内容完全正确，但 `uci show network | grep -c @device`
            仍然稳定 = 5（1 个正确 + 4 个净空壳）。
         原因：OpenWrt/ImmortalWrt 启动时序差异：
@@ -832,7 +832,7 @@ Heredoc 写完之后：
               `uci add network device` 却不写 name/type，在 99- 清理完成
               之后又新生成 4 个裸空壳。
         → 简单说：不是"没删掉"，是"我们刚扫干净，后面 netifd 又加了 4 个"。
-        修复（每次开机扫尾）：
+        backup-v4.3 尝试修复：
            在 base-files/files 下新增 init 脚本
               `/etc/init.d/nn6000-cleanup`，START=21
               （正好在 S20 network 之后，S40 firewall 之前）
@@ -841,9 +841,18 @@ Heredoc 写完之后：
               删命名 device → while 删 @device[0] 到没有 →
               uci add 1 个 → type/name/macaddr/ports 写齐 →
               uci commit network → ubus call network reload
-           因为 START=21 晚于 S20 netifd 启动，这一次重建后不会再有任何
+           预期：START=21 晚于 S20 netifd 启动，这一次重建后不会再有任何
            系统组件再往 UCI 里 `add network device`，所以最终匿名 device
            计数必然 = 1（LuCI 设备页也不再有多的条目）。
+        backup-v5 用户实测结果 + 决策：
+           刷完 v5 固件后检查发现 `uci show network | grep -c @device` 仍
+           然是 5，且同时还冒出 ip6tnl0 / sit0 两个 IPv6 隧道模板口。
+           用户在确认这 3 个问题（device 空壳残留 / resolv.conf 被
+           dnsmasq 覆盖成 127.0.0.1 / 虚拟口重启后残留）都不影响系统
+           稳定和有线网络功能后，明确决定「放着不动，不折腾」。
+           → 故此移除 backup-v4.3 新增的 init.d/nn6000-cleanup +
+              S21 软链，恢复成原作者仓库的「没有额外 init 脚本」状态。
+           三个观感问题留档在此，后续若有需要再针对性修复。
     → 子坑 9-b（backup-v4.1 修复）：br-lan 配置页 MAC 地址填的是
            `'f8:5e:3c:4c:50:7a'`（外面多一对单引号），实际生效的 MAC 没变
         原因：写了 `uci set "...macaddr='$BR_LAN_MAC'"` — 外层双引号已经
