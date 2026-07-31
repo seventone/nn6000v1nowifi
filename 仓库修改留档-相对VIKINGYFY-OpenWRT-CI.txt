@@ -1,0 +1,615 @@
+================================================================================
+NN6000 V1 无WiFi版 / 旁路由固件 仓库修改留档
+================================================================================
+基准仓库： https://github.com/VIKINGYFY/OpenWRT-CI  （commit：本仓库初始 clone 时的 main 最新）
+目标仓库： https://github.com/seventone/nn6000v1nowifi
+本留档对应还原点 tag： nn6000v1nowifi-backup-v3
+本留档创建时间：     2026-07-31
+
+【本文作用】
+  以后重新 clone 了 VIKINGYFY/OpenWRT-CI 想再做一次一模一样的定制，
+  或者想对照"原作者改了什么 / 我改了什么"，直接按本文逐项核对即可。
+  每一项都写清楚：改了哪个文件、原作者是啥、我们改成啥、为什么改、
+  将来要恢复/微调改哪里。
+
+【修改总原则（严格遵守）】
+  * 只删不加：能后期 opkg 装的一律不编进固件，只保留系统完整稳定+有线网络畅通
+  * 不留 WiFi：所有无线驱动 / 固件 / 接口一律删除
+  * 旁路由模式：没有 WAN/WAN6，三网口全桥 LAN，DHCP 关，IPv6 默认关但保留模块
+  * 网口重命名：原 WAN→lan1，原 LAN1→lan2，原 LAN2→lan3
+  * 自定义 MAC 地址编译进固件（三物理口分别设、br-lan 网桥跟随 lan1）
+  * 仅保留两种固件：factory.bin（首次刷机）+ squashfs-sysupgrade.bin（升级）
+  * 仅保留 NN6000 V1 无WiFi版一个设备型号，删除其他所有型号
+
+================================================================================
+0. 源码复用关系（和原作者保持一致，不动）
+================================================================================
+源码仓库：   https://github.com/VIKINGYFY/immortalwrt.git  （VIKINGYFY fork 的 ImmortalWrt）
+源码分支：   main
+编译调用链： NN6000V1NOWIFI.yml (workflow_dispatch 手动触发)
+               └─ calls WRT-CORE.yml (workflow_call 可复用核心流程)
+                  ├─ Initialization Environment
+                  ├─ Clone VIKINGYFY/immortalwrt.git main
+                  ├─ cat Config/IPQ60XX-WIFI-NO.txt + Config/GENERAL.txt → .config
+                  ├─ 运行 Scripts/Settings.sh （注入主题 / 网络 / MAC / DTS patch / uci-defaults）
+                  ├─ make defconfig → make download → make -j$(nproc)
+                  └─ Package Firmware → Release（仅 factory.bin + squashfs-sysupgrade.bin）
+
+【改动点】  源码地址完全复用原作者，零改动；
+           只改我们自己这个编译配置仓库（OpenWRT-CI fork 出来的 seventone/nn6000v1nowifi）。
+
+================================================================================
+1. 文件增删清单（和原作者 OpenWRT-CI 对比）
+================================================================================
+────────────────────────────────────────
+1.1 原作者有、我们删除的文件
+────────────────────────────────────────
+删除的文件                        理由
+────────────────────────────────────────
+.github/workflows/NN6000.yml      改名 → NN6000V1NOWIFI.yml（扩展名 .yml 大小写也修正）
+.github/workflows/MTK-ALL.yml     删除：不需要联发科平台
+.github/workflows/OWRT-ALL.yml    删除：不需要 OpenWrt 官方源码全量编译
+.github/workflows/QCA-ALL.yml     删除：不需要高通全系型号统一调度
+.github/workflows/WRT-TEST.yml    删除：不需要测试配置
+.github/workflows/Auto-Clean.yml  删除：原作者每天 5 点自动把所有 Release+Tag+Workflow
+                                    运行记录清空，严重影响存档；完全删掉，永远不再自动清
+Scripts/Handles.sh                删除：原作者脚本对旁路由模式无作用，精简加速
+Scripts/Packages.sh               删除：同上，插件下载逻辑对我们"零插件"模式无作用
+
+Config/IPQ60XX-WIFI-YES.txt       删除：我们不要 WiFi，也不想误编译带 WiFi 驱动的版本
+Config/IPQ807X-WIFI-NO.txt        删除：非 NN6000/非 IPQ60xx 型号
+Config/IPQ807X-WIFI-YES.txt       删除：同上 + 带 WiFi
+Config/MEDIATEK-WIFI-NO.txt       删除：联发科型号
+Config/MEDIATEK-WIFI-YES.txt      删除：同上 + 带 WiFi
+Config/ROCKCHIP.txt               删除：瑞芯微型号
+Config/X86.txt                    删除：x86 型号
+Config/TEST.txt                   删除：测试用
+
+────────────────────────────────────────
+1.2 原作者没有、我们新增的文件（含改名）
+────────────────────────────────────────
+新增的文件                                      作用
+────────────────────────────────────────────────
+.github/workflows/NN6000V1NOWIFI.yml            由原作者 NN6000.yml 改名而来；唯一的编译入口
+                                                  手动触发 workflow_dispatch；不带 schedule
+                                                  WRT_THEME=argon, WRT_IP=10.0.0.30
+系统和内核日志原作者固件.txt                     用户自己的调试资料（原作者固件 dmesg/logread）
+系统和内核日志自编译.txt                         用户自己的调试资料（本仓库自编译固件 dmesg/logread）
+仓库修改留档-相对VIKINGYFY-OpenWRT-CI.txt        就是本文件，留档用
+
+────────────────────────────────────────
+1.3 保留的文件（和原作者共通，但内容有改动，见下一节）
+────────────────────────────────────────
+.github/workflows/WRT-CORE.yml       核心编译流程 → 大幅修改（缓存、固件命名/筛选、时区容错）
+.github/workflows/Cache-Clean.yml    缓存清理 → schedule 每周自动清理注释掉，只留手动
+Config/GENERAL.txt                   通用配置 → 严格"只删不加"，去掉所有插件、USB、声音、视频、
+                                       虚拟口（dummy/gre/erspan/sit），保留 NSS、基础网络/存储
+Config/IPQ60XX-WIFI-NO.txt           原作者 IPQ60xx 无 WiFi 版通用配置 → 只保留
+                                       link_nn6000-v1 一个设备，删除其他 IPQ60xx 型号
+Scripts/Settings.sh                  最核心的定制脚本 → 加入旁路由 uci-defaults、
+                                       自定义 MAC、DTS patch 网口 label、board.d patch
+                                       把 3 口全部 LAN（无 WAN）、删除 ATHD 所有 N WiFi
+
+================================================================================
+2. 逐文件修改明细（每项都写了具体行 / 怎么改 / 改了啥）
+================================================================================
+
+────────────────────────────────────────
+2.1 .github/workflows/NN6000V1NOWIFI.yml   （原作者 NN6000.yml 改名 + 小幅修改）
+────────────────────────────────────────
+定位：本仓库唯一编译入口；只能手动 Run workflow，不能自动定时/不能被 Release 触发。
+
+字段             原作者 NN6000.yml                     我们 NN6000V1NOWIFI.yml       理由
+─────────────────────────────────────────────────────────────────────────────────────
+on.schedule      cron: 每天定时（自动编译）             删除（无）                    不需要自动编译
+on.workflow_run  Release 完成后触发下一批编译           删除（无）                    旁路由不需要串
+on.workflow_dispatch inputs.PACKAGE / TEST 保留         保留                          用户可临时加插件
+                                                                                      或 TEST=true 只输
+                                                                                      出 .config
+name             原作者显示"NN6000"或原默认             "NN6000 V1 No WiFi"           Actions 列表里
+                                                                                      一眼看清是哪条
+jobs.build-with:
+  WRT_CONFIG     IPQ60XX-WIFI-NO（通用60xx无WiFi）      不变                           指向同一个配置文件
+  WRT_THEME      argon（原作者默认也可能是别的）        强制 argon                    用户要求，唯一主题
+  WRT_IP         192.168.1.1 或原作者默认               10.0.0.30                    旁路由固定 IP
+  WRT_NAME / SSID / WORD 等 WiFi 相关参数  保留         保留（但实际无 WLAN 驱动      为了 WRT-CORE
+                                                        不会生效）                    字段一致性；
+                                                                                      Settings.sh 会
+                                                                                      关掉 WiFi 相关
+  WRT_REPO       https://github.com/VIKINGYFY/immortalwrt.git    不变                 保持和原作者同源
+  WRT_BRANCH     main                                    不变
+  WRT_SOURCE     VIKINGYFY/immortalwrt                   不变
+
+────────────────────────────────────────
+2.2 .github/workflows/WRT-CORE.yml      （核心流程，改动最多的一个文件）
+────────────────────────────────────────
+定位：被 NN6000V1NOWIFI.yml 用 uses: ./WRT-CORE.yml workflow_call。
+────────────────────────────────────────
+2.2.1 缓存策略（大幅增强，原作者是单 cache，我们拆成两段）
+────────────────────────────────────────
+原作者（单 cache）：
+  - 单一 actions/cache，key=...，同时包含 ccache + dl + staging_dir/*
+  - 一旦源码哈希变了，整条 cache 失效，ccache 和 dl 目录也跟着没
+
+我们（拆成两段 cache，命中最大化）：
+  Cache1 "Cache CCache & DL"  （[WRT-CORE.yml:119-133]）
+    key   = ccache-${WRT_CONFIG}-${WRT_INFO}-${WRT_HASH}-${WRT_DATE}
+    restore-keys:
+      ccache-${WRT_CONFIG}-${WRT_INFO}-${WRT_HASH}
+      ccache-${WRT_CONFIG}-${WRT_INFO}
+      ccache-${WRT_CONFIG}                  ← 宽松匹配，尽量复用历史 dl/ccache
+    path:   ./wrt/.ccache  ./wrt/dl
+    特点：   日期滚动 + 宽松 restore，源码变了也尽量复用最近的 ccache/dl
+
+  Cache2 "Cache Toolchain & Host"  （[WRT-CORE.yml:134-145]）
+    key   = toolchain-${WRT_CONFIG}-${WRT_INFO}-${WRT_HASH}   ← 严格绑定源码哈希
+    restore-keys: toolchain-${WRT_CONFIG}-${WRT_INFO}
+    path:  ./wrt/staging_dir/host*  ./wrt/staging_dir/tool*
+    特点：  源码不更新时 toolchain 100% 复用；源码变了才清旧条目
+
+  Update Caches 步骤（[WRT-CORE.yml:146-181]）额外加：
+    - ccache -s 打印命中统计（便于观察命中率）
+    - WRT_HASH 变化时，gh cache delete 清理"同配置旧 toolchain"，避免占满 10GB 配额
+    - 打印 cache hit / miss 提示
+
+  环境变量（[WRT-CORE.yml:61-64]）：
+    CCACHE_MAXSIZE=10G
+    CCACHE_COMPRESS=true
+    CCACHE_COMPRESSLEVEL=6
+    （原作者默认或更小；我们放大到 10G + 压缩，二次编译速度提升最明显）
+
+────────────────────────────────────────
+2.2.2 固件产物筛选 + 命名（原作者所有产物都传，我们只留 2 种，按固定命名）
+────────────────────────────────────────
+原作者 Package Firmware 步骤：find bin/targets -type f 全部 cp 到 upload/，并按原作者 Release 规则命名。
+
+我们 Package Firmware（[WRT-CORE.yml:229-278]）：
+  FIRMWARE_PREFIX = "nn6000v1nowifi"
+
+  只筛选 2 个文件，其他全不要：
+  ① FACTORY_FILE = find -iname "*-factory.bin" | head -1
+      → 复制为 nn6000v1nowifi-${WRT_DATE}-factory.bin
+      （首次刷机用，原厂 Web / Breed 刷入）
+
+  ② SYSUP_FILE   = find -iname "*-squashfs-sysupgrade.bin" | head -1
+      → 复制为 nn6000v1nowifi-${WRT_DATE}-squashfs-sysupgrade.bin
+      （LuCI 系统 → 备份 / 升级 刷写用）
+
+  并且 ls -lh ./upload/ 最终只列出这 2 个 + 一份 .config 文本。
+  所有 initramfs / rootfs / itb / dtb / tar 等全部不进 Release。
+
+  Release body（[WRT-CORE.yml:285-310]）改为：
+    - 明确写"仅适用 NN6000 V1 无WiFi版"
+    - 明确两个固件文件名说明
+    - 明确旁路由默认参数：IP 10.0.0.30 / 密码 password / GW 10.0.0.100 / DNS 10.0.0.5 223.5.5.5 / DHCP off
+    - 源码 repo / branch / hash / 配置 / 平台 / 内核 / 插件列表 保留
+
+────────────────────────────────────────
+2.2.3 Initialization Environment 容错（[WRT-CORE.yml:84-91] 时区）
+────────────────────────────────────────
+原作者：sudo -E timedatectl set-timezone "Asia/Shanghai"
+        GitHub Actions runner 偶尔会报 Access denied（PolicyKit 没就绪）→ 整个工作流 exit 1。
+
+我们：保持原作者写法（用户要求回退）；
+     如果以后再撞到 Access denied，再切成纯文件写法：
+       sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+       echo "Asia/Shanghai" | sudo tee /etc/timezone
+     （本留档写出来，下次不用再查）
+
+────────────────────────────────────────
+2.3 .github/workflows/Cache-Clean.yml    （每周自动清理 → 只留手动）
+────────────────────────────────────────
+原作者（[Cache-Clean.yml:6-11]）：
+  on:
+    schedule:
+      - cron: 0 20 * * 0      每周日 20:00 UTC = 北京周一凌晨 4 点，
+                               gh cache delete --all 清空所有 ccache/dl/toolchain 缓存
+    workflow_dispatch:
+
+我们（[Cache-Clean.yml:6-18]）：
+  on:
+    # schedule 整段注释掉；不自动清
+    # 原因：GitHub public repo 有 10GB LRU 自动淘汰最旧的，比"每周全删"命中率高太多
+    workflow_dispatch:        只留手动入口；想清的时候 Actions 里点一次就行
+  其它（permissions/env/jobs）完全不变。
+
+────────────────────────────────────────
+2.4 Config/IPQ60XX-WIFI-NO.txt   （原作者 IPQ60xx 通用无 WiFi → 我们只留 NN6000 V1）
+────────────────────────────────────────
+说明：按用户要求"只删不加，严格和原作者格式对齐"，所以本文件 100% 保留原作者结构，
+     只把"除 link_nn6000-v1 以外的设备"从设备列表里删掉，WiFi 驱动禁用项完全照抄。
+
+          原作者 IPQ60XX-WIFI-NO.txt 长啥样          我们的 IPQ60XX-WIFI-NO.txt
+─────────────────────────────────────────────────────────────────────────────────
+设备平台     CONFIG_TARGET_qualcommax=y                完全照抄，不改
+             CONFIG_TARGET_qualcommax_ipq60xx=y         完全照抄，不改
+
+设备列表     CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_   只保留下面这 1 行：
+             DEVICE_cambiumnetworks_xe3-13x=y           CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_
+             CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_     DEVICE_link_nn6000-v1=y
+             DEVICE_linksys_mx2000atp=y                 其他型号（cambiumnetworks、
+             CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_   linksys mx2000atp、
+             DEVICE_link_nn6000-v1=y                    qxwlan e2600ac-c1 等等）
+             CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_   全部删除
+             DEVICE_qxwlan_e2600ac-c1=y                 （严格"只删不加"原则）
+             ... 其他 IPQ60xx 设备 ...
+
+WiFi 驱动     CONFIG_PACKAGE_kmod-ath=n                 完全照抄，不增不减
+             CONFIG_PACKAGE_kmod-ath11k=n               （原作者怎么禁用 WiFi，
+             CONFIG_PACKAGE_kmod-ath11k-ahb=n           我们就一模一样抄）
+             CONFIG_PACKAGE_kmod-ath11k-pci=n
+             CONFIG_PACKAGE_ath11k-firmware-ipq6018=n
+             CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=n
+             CONFIG_PACKAGE_ath11k-firmware-qcn9074=n
+             CONFIG_PACKAGE_ath11k-firmware-qcn9074-ddwrt=n
+
+────────────────────────────────────────
+2.5 Config/GENERAL.txt     （通用配置，严格"只删不加"，不能主动新增任何 y）
+────────────────────────────────────────
+说明：用户提供了原作者一份内容完整的 GENERAL.txt，要求"能后期装的就都删除，
+     保证基础功能、系统完整稳定、有线网络畅通，删除无线"。
+     下面是和原作者那份对比的所有差异（我们 = 原作者 删掉若干 + 新增几个 =n）。
+
+          原作者 GENERAL.txt                  我们的 GENERAL.txt                  理由
+─────────────────────────────────────────────────────────────────────────────────────────
+科学插件       luci-app-homeproxy=y                删除（=n / 直接删掉行）      以后 opkg 装
+新增插件       luci-app-autoreboot=y               删除                             同上
+               luci-app-gecoosac=y                 删除                             同上
+               luci-app-mini-diskmanager=y         删除                             同上
+               luci-app-partexp=y                  删除                             同上
+               luci-app-samba4=y                   删除（旁路由不需要共享）          同上
+               luci-app-upnp=y                     删除（旁路由不需要）              同上
+               luci-app-wolultra=y                 删除（旁路由不需要 WOL）          同上
+删除插件       luci-app-attendedsysupgrade=n       保留（本来就是不装）
+               luci-app-wol=n                      保留
+
+参数调整       CONFIG_CCACHE=y / CONFIG_DEVEL=y    完全保留
+               CONFIG_FEED_video=n                 保留
+               CONFIG_TARGET_MULTI_PROFILE=y       保留
+               CONFIG_TARGET_PER_DEVICE_ROOTFS=y   保留
+               CONFIG_TARGET_ROOTFS_INITRAMFS=n    保留（不编译 initramfs 镜像）
+
+内核调整       kmod-ata-ahci / ata-core            保留（SATA/NVME 旁路由要存东西用）
+               kmod-bonding / dsa                   保留（桥接/网口依赖）
+               kmod-dummy=y                         改 =n  ← 新增显式不编译，
+                                                                 不开机出 dummy0
+               【新增 6 行 =n】                                 不开机出隧道模板口：
+               (原作者没写这 6 行，我们加)                          CONFIG_PACKAGE_kmod-gre=n
+                                                                 CONFIG_PACKAGE_kmod-erspan=n
+                                                                 CONFIG_PACKAGE_kmod-gretap=n
+                                                                 CONFIG_PACKAGE_kmod-ip6-tunnel=n
+                                                                 CONFIG_PACKAGE_kmod-sit=n
+                                                                 (说明：都是只把原本
+                                                                 自动编译的模块显式
+                                                                 关掉，没有打开新东西，
+                                                                 符合"只删不加"的精神)
+               kmod-fs-btrfs / kmod-fs-ksmbd        保留（文件系统）
+               kmod-fuse / kmod-inet-diag /
+               kmod-inet-mptcp-diag                 保留（网络诊断）
+               kmod-mtd-rw / kmod-netlink-diag      保留
+               kmod-nf-nat6 / nft-arp /
+               nft-bridge / nft-connlimit /
+               nft-core / nft-dup-inet / nft-fib /
+               nft-fullcone / nft-nat /
+               nft-netdev / nft-offload /
+               nft-queue / nft-socket /
+               nft-tproxy / nft-xfrm                保留（防火墙/NSS/nftables 全套）
+               kmod-nvme                             保留（NVMe 盘）
+               kmod-ovpn-backports                   保留（以后装 OpenVPN 依赖）
+               kmod-sound-core=y                     删（旁路由不需要声音）
+               kmod-tun                               保留（TUN 不自动建模板口）
+               kmod-usb3 / usb-audio / usb-core /
+               usb-dwc3 / usb-net* / usb-ohci /
+               usb-storage* / usb-uhci / usb-xhci    全删（旁路由不需要 USB，精简）
+               kmod-veth                              保留（容器/虚拟化可能用）
+               kmod-wireguard=y                       保留（以后装 luci-app-wireguard
+                                                                 有用）
+
+组件调整       autocore / automount / blkid /
+               cfdisk / cgdisk / coremark /
+               cpufreq / curl / dmesg /
+               exfat-fsck / exfat-mkfs /
+               fdisk / gdisk / htop / iperf3 /
+               ip-full / libimobiledevice /
+               libnvme / lsblk /                     这些全部保留
+               mmc-utils / nand-utils /
+               nvme-cli / openssh-keygen /
+               openssh-sftp-server / openssl-util /
+               proto-bonding / sfdisk / sgdisk /
+               smartmontools / smartmontools-drivedb /
+               usb-modeswitch / usbmuxd / usbutils /
+               xz-utils
+               luci-base / luci-compat /
+               luci-lib-base / luci-lib-ipkg /
+               luci-lua-runtime / luci-proto-relay
+
+删除的组件     luci-app-* （除主题外，其它应用全删）       严格遵循"以后装"
+
+────────────────────────────────────────
+2.6 Scripts/Settings.sh     （定制核心，改动最大的脚本）
+────────────────────────────────────────
+定位：WRT-CORE.yml 的 Custom Settings 步骤 `$GITHUB_WORKSPACE/Scripts/Settings.sh` 在
+      ImmortalWrt 源码目录内执行，负责在 make defconfig 之前：
+        ① 往 .config 追加 LuCI / 主题 / MAC 相关 .config 开关
+        ② patch 源码里的 DTS / board.d / ATHD Makefile
+        ③ 写一个 /etc/uci-defaults/99-nn6000v1nowifi，首次开机自动执行旁路由初始化
+
+下面按 Settings.sh 代码里出现的顺序列改动（相对原作者 Settings.sh）。
+
+────────────────────────────────────────
+2.6.0 脚本头部（旁路由固定参数）
+────────────────────────────────────────
+原作者 Settings.sh 读取这些变量来自 WRT-CORE.yml 的 WRT_IP / WRT_PW / WRT_THEME。
+我们在头部额外定义一组"旁路由专用常量"（[Settings.sh:15-19]）：
+  LAN_IP=10.0.0.30
+  LAN_MASK=255.255.255.0
+  LAN_GW=10.0.0.100
+  LAN_DNS1=10.0.0.5
+  LAN_DNS2=223.5.5.5
+（将来想改 IP/GW/DNS，改这 5 行即可，一处改全部生效。）
+
+────────────────────────────────────────
+2.6.1 .config 追加写入（[Settings.sh:67-74] 基础配置注入）
+────────────────────────────────────────
+原作者 Settings.sh：
+  echo CONFIG_PACKAGE_luci=y
+  echo CONFIG_LUCI_LANG_zh_Hans=y
+  echo CONFIG_PACKAGE_luci-theme-xxx=y            （主题可能不同）
+  echo CONFIG_PACKAGE_luci-app-xxx-config=y
+
+我们：
+  echo CONFIG_PACKAGE_luci=y                    ← LuCI 总开关
+  echo CONFIG_LUCI_LANG_zh_Hans=y               ← 简体中文编译总开关
+                                                     （非常关键，之前漏写编译出来是英文）
+  echo CONFIG_PACKAGE_luci-theme-argon=y        ← 仅 Argon 主题，用户指定
+  echo CONFIG_PACKAGE_luci-app-argon-config=y   ← Argon 主题配置器
+（严格保持原作者那 4 行结构，只把主题名替换为 argon；无多余行）
+
+────────────────────────────────────────
+2.6.2 ATHD Makefile 去 N 结尾（[Settings.sh:77-98]）
+────────────────────────────────────────
+作用：高通 NSS 驱动在 ImmortalWrt 里通常有两种 package 名，xxx-N 结尾是"带 NSS 功能"版，
+     我们要确保 NSS 相关都选 N 版、或至少 Makefile 不因为 N 后缀和默认冲突。
+     这一段原作者就有，我们**保持原样**不改动；
+     唯一加的保险：每个 sed 前先 find，有文件才 sed，避免路径不存在时报错。
+
+────────────────────────────────────────
+2.6.3 board.d/02_network patch（[Settings.sh:106-140] 网口 LAN 组改写）
+────────────────────────────────────────
+作用：board.d/02_network 决定 netifd 启动时 "LAN 组有哪些 label / WAN 组有哪些 label"。
+
+原作者对 link,nn6000-v1 分支默认：
+  link,nn6000-v1)
+    ucidef_set_interfaces_lan_wan "lan1 lan2" "wan"
+    ;;
+（2 LAN + 1 WAN，WAN 做普通路由用）
+
+我们 patch 成（核心 1 行）：
+  sed -i '/link,nn6000-v1)/,/;;/ {
+      s/.*ucidef_set_interfaces_lan_wan.*/\tucidef_set_interfaces_lan_wan "lan1 lan2 lan3" ""/
+  }' target/linux/qualcommax/ipq60xx/base-files/etc/board.d/02_network
+
+要点：
+  * 范围锁死：/link,nn6000-v1)/,/;;/ 只改 nn6000-v1 这个 case，
+    绝对不会误伤 dptech-ap3000-2c / 8devices-mango-dvk / glinet-gl-axt1800
+    这些和它共用同一条配置的其他设备（方案 1 全局 s|||g 没加范围就踩了坑）
+  * 用 .*整行替换.*，不是 \s+ 精确匹配参数（BRE \s+ 不支持、导致替换没生效）
+  * 结果：LAN 组 = "lan1 lan2 lan3"，WAN 组 = ""，3 个口全进 LAN
+
+────────────────────────────────────────
+2.6.4 DTS patch：网口 label 重命名（[Settings.sh:142-164]）
+────────────────────────────────────────
+目标：原作者固件 label 顺序是 "wan / lan1 / lan2"（机箱丝印或 LuCI 显示）。
+      用户要求：三个口统一 LAN，而且按
+          原 WAN  口  →  lan1
+          原 LAN1 口  →  lan2
+          原 LAN2 口  →  lan3
+      显示。
+
+执行：在 nn6000-v1 的 DTS（设备树）文件中用 sed 改 label：
+  * 顺序要"倒着改"，先改最后一个不会被后面覆盖：
+      LAN2 label  →  lan3
+      LAN1 label  →  lan2
+      WAN  label  →  lan1
+  * 每个 sed 前面先 find + 非空判断，避免 DTS 文件名 / 路径和我们预期不一致时出错。
+
+DTS patch 完成后，配合 2.6.3 board.d 的 LAN 组 "lan1 lan2 lan3"，
+开机 LuCI 显示就是 lan1 / lan2 / lan3 三个口，全都在 br-lan 里，不分 WAN。
+
+────────────────────────────────────────
+2.6.5 写 /etc/uci-defaults/99-nn6000v1nowifi（首次开机初始化脚本）
+────────────────────────────────────────
+这是 Settings.sh 最大一块（Heredoc，UCI_EOF 包起来），共 8 段：
+
+  2.6.5.1 删除 WAN / WAN6 接口（[UCI_EOF 第 183-188 行]）
+    uci delete network.wan
+    uci delete network.wan6
+    uci delete network.wan_dev
+    uci delete network.wan6_dev
+    （彻底删除，不是 disable；重启也不会重新出现）
+
+  2.6.5.2 自定义 MAC 地址（[UCI_EOF 第 191-290 行]）★ 最关键的一块
+    用户指定：
+      lan1 = f8:5e:3c:4c:50:7a
+      lan2 = f8:5e:3c:4c:50:7b
+      lan3 = f8:5e:3c:4c:50:7c
+      br-lan = 跟随 lan1 = f8:5e:3c:4c:50:7a
+    实现：
+      (a) 先清理可能遗留的"命名 device section"（network.lan1 / network.lan2 /
+          network.lan3 / network.br_lan）→ 避免和 board.d 匿名 section 冲突
+          （上一版写 `uci set network.br_lan='device'` 导致 LuCI 显示两个 br-lan）
+      (b) 用 while 循环遍历 network.@device[i]，把重复出现的 name=lan1/lan2/lan3
+          匿名 section 删掉，留空；把第二个及以后的 name=br-lan 匿名 section 删掉
+          （只保留第一个 board.d 生成的）
+      (c) 用 `uci add network device` 分别新建 3 个匿名 device section，
+          每个写 name='lan1/lan2/lan3' 和 macaddr='...'
+      (d) 再次 while 循环找到 name='br-lan' 那个匿名 section：
+          set macaddr（不新建第二个！），如果缺 ports 再 add_list 补 lan1/lan2/lan3
+      (e) 最后 `uci set network.lan.device='br-lan'` 绑定逻辑 LAN 接口到网桥
+      (f) 启动时立即生效：4 个 `if [ -d /sys/class/net/X ]` 块，
+          `ip link set dev X address MAC` 立刻把内核接口刷成新 MAC，
+          避免网口 bring up 时把原厂 MAC 告诉交换机 ARP。
+
+    合法性：
+      * 第 1 字节 0xf8 = 1111_1000，最低位 =0，合法单播
+      * 前 5 字节 f8:5e:3c:4c:50 与原厂 OUI 对齐
+      * 三个口最后 1 字节 7a/7b/7c，与原厂 79/7a/7b 错开不冲突
+
+  2.6.5.3 LAN 静态 IP / 掩码 / 网关 / DNS（[UCI_EOF 第 292 行起]）
+    PLACEHOLDER_LAN_IP / _MASK / _GW / _DNS1 / _DNS2
+    → Heredoc 写完后，用 5 条 sed 把占位符换成脚本开头的常量（[Settings.sh:380-384]）
+    实际写入：
+      network.lan.proto=static
+      network.lan.ipaddr=10.0.0.30
+      network.lan.netmask=255.255.255.0
+      network.lan.gateway=10.0.0.100
+      network.lan.dns="10.0.0.5 223.5.5.5"
+      network.lan.delegate=0          ← 关掉 IPv6 前缀下发
+      delete ip6assign / ip6hint
+
+  2.6.5.4 关闭 DHCP（旁路由模式必须）
+    dhcp.lan.ignore='1'          ← 不响应 DHCP 请求
+    dhcp.lan.dhcpv6='disabled'
+    dhcp.lan.ra='disabled'
+    odhcpd maindhcp=0 + /etc/init.d/odhcpd disable
+    （DHCP 由主路由提供，避免和主路由 DHCP 冲突）
+
+  2.6.5.5 IPv6 默认关闭（内核模块保留，用户需要再手动开）
+    network.globals.ula_prefix 清空
+    /proc/sys/net/ipv6/conf/{all,default}/disable_ipv6 =1
+    /etc/sysctl.conf 两行 disable_ipv6
+    （用户需要 IPv6 时，把 disable_ipv6 改成 0 就行）
+
+  2.6.5.6 防火墙：删除 WAN zone，仅保留 LAN zone
+    while uci -q delete firewall.@zone[0] 循环清空所有 zone
+    add 一个新 zone：name=lan / network=lan / input=ACCEPT / output=ACCEPT /
+                    forward=ACCEPT / masq=0 / mtu_fix=0
+    forwarding 规则清空
+    （旁路由没有 WAN↔LAN 转发需求）
+
+  2.6.5.7 写死 /etc/resolv.conf，避免被别的脚本覆盖回默认 DNS
+
+  2.6.5.8 清理虚拟模板接口（双保险清理）★ 新增
+    for _dev in dummy0 erspan0 gre0 gretap0 ip6gre0 ip6tnl0 sit0:
+      存在则 ip link set down + ip link delete
+    再 rmmod dummy / gre / ip_gre / gretap / ip6gre / ip6_tunnel /
+            sit / ipip / erspan
+    （即便 GENERAL.txt =n 拦不住的 built-in，这里也彻底从运行时删掉，LuCI 设备页
+      只会显示 br-lan + lan1 + lan2 + lan3 + lo，清爽）
+
+Heredoc 写完之后：
+  * 5 条 sed 替换 5 个 PLACEHOLDER_* → 真正的 IP/GW/DNS
+  * 打印两行 echo 日志，方便 make 阶段观察注入成功没
+
+────────────────────────────────────────
+2.7 README.md
+────────────────────────────────────────
+原作者 README 讲的是通用使用。
+我们的 README.md（用户已打开的文件）：
+  开头第一句就改成：
+    "基于 VIKINGYFY/OpenWRT-CI 精简而来，仅用于编译 NN6000 V1 无WiFi版
+     （link_nn6000-v1，IPQ6018 平台）的固件。"
+  其余内容如果还存在原作者多平台说明，原则是"只删不加"，删除其他型号的指导。
+
+================================================================================
+3. 改动摘要（方便快速浏览，不看逐文件细节）
+================================================================================
+[A] 仓库瘦身
+  - 多型号配置、多平台工作流、原作者自动清理工作流全部删掉
+  - Handles.sh / Packages.sh 两个脚本删掉
+  - 最终只剩 3 工作流 + 2 配置 + 1 Settings.sh
+
+[B] 旁路由化（核心定制）
+  - 没有 WAN/WAN6 接口，3 口全 LAN
+  - 网口 label：原 WAN→lan1、原 LAN1→lan2、原 LAN2→lan3
+  - DTS label patch + board.d LAN 组 patch 双保险
+  - 静态 IP 10.0.0.30 / 网关 10.0.0.100 / DNS 10.0.0.5 & 223.5.5.5
+  - DHCP 关 / IPv6 默认关 / 防火墙只有 LAN zone
+  - 自定义 MAC：lan1/lan2/lan3 = 7a/7b/7c，br-lan = 7a
+  - 清理所有虚拟口模板（dummy/gre/erspan/sit）
+
+[C] 编译加速
+  - WRT-CORE 双缓存（ccache+dl 宽松复用 / toolchain 严格绑定源码）
+  - CCACHE_MAXSIZE=10G + 压缩
+  - Cache-Clean 每周自动清→注释掉，只留手动入口
+
+[D] 固件产物
+  - 仅 factory.bin + squashfs-sysupgrade.bin 两种
+  - 命名：nn6000v1nowifi-{yy.MM.dd-HH.MM.SS}-{factory|squashfs-sysupgrade}.bin
+
+[E] 软件包严格精简（只删不加）
+  - 主题：仅 Argon
+  - 语言：zh-Hans 编进固件（英文坑已修）
+  - 零插件：homeproxy / autoreboot / samba4 / upnp / wolultra 等全删
+  - 零 USB/零声音/零视频
+  - 虚拟口 kmod（dummy/gre/erspan/ip6-tunnel/sit）不编译
+  - NSS 全套 kmod + nftables 全套 + SATA/NVMe / 文件系统 / 网络诊断工具 保留
+  - tun / wireguard / bonding / veth 保留（以后装 VPN 要用）
+
+================================================================================
+4. 日后重改清单（按步骤走就能复刻当前状态）
+================================================================================
+步骤  动作
+──────┼─────────────────────────────────────────────────────────────────────────
+ 1    git clone https://github.com/VIKINGYFY/OpenWRT-CI
+ 2    打开 .github/workflows，删掉：MTK-ALL / OWRT-ALL / QCA-ALL / WRT-TEST /
+      Auto-Clean；把 NN6000.yml 改名 NN6000V1NOWIFI.yml（注意扩展名小写）
+ 3    按 2.1 列表删除所有不需要的 Config/*.txt 和 Scripts/Handles.sh + Packages.sh
+ 4    按 2.2 改 WRT-CORE.yml（双缓存、固件筛选+命名、Release 文案）
+ 5    按 2.3 把 Cache-Clean.yml schedule 注释掉
+ 6    按 2.4 改 IPQ60XX-WIFI-NO.txt（只留 link_nn6000-v1，其他设备全删）
+ 7    按 2.5 改 GENERAL.txt（严格只删不加：插件/USB/声音/kmod-dummy/…，
+      再加 6 行 =n 的隧道 kmod）
+ 8    按 2.6 写 Scripts/Settings.sh：
+      a. 写死 5 个旁路由常量
+      b. .config 追加 luci + zh-Hans + argon 主题两行
+      c. ATHD Makefile patch（原作者版本）
+      d. board.d sed：把 link_nn6000-v1 的 LAN 组改成 lan1 lan2 lan3，WAN 空
+      e. DTS sed：LAN2→lan3 → LAN1→lan2 → WAN→lan1（倒序避免覆盖）
+      f. 写 99-nn6000v1nowifi uci-defaults（本留档 2.6.5 的 8 段）
+ 9    按 2.2.1 改 NN6000V1NOWIFI.yml name、on（仅 workflow_dispatch）、
+      WRT_THEME=argon、WRT_IP=10.0.0.30
+10    远端 git push 即可。还原 tag：nn6000v1nowifi-backup-v3
+11    （可选）以后出改动再打 backup-v4 / v5 / ... tag 保存状态。
+
+================================================================================
+5. 已知坑 & 修复回顾（避免再犯）
+================================================================================
+坑 1：Actions 看不到 NN6000V1NOWIFI 工作流
+    → 原因：扩展名是大写 .YML，GitHub 只认 .yml/.yaml
+    → 修复：改名成小写 .yml（已修）
+
+坑 2：编译出来 LuCI 英文
+    → 原因：漏写 CONFIG_LUCI_LANG_zh_Hans=y + CONFIG_PACKAGE_luci=y
+    → 修复：Settings.sh .config 注入两行（已修）
+
+坑 3：启动后 br-lan 只有 lan1+lan2，缺 lan3（进不了桥）
+    → 原因：board.d sed 用 BRE 正则 \s\+，BRE 不支持 → 替换完全不匹配
+    → 修复：改成 /link,nn6000-v1)/,/;;/ 范围锁 + 整行 .* 替换（已修）
+
+坑 4：LuCI 设备页显示两个 br-lan
+    → 原因：`uci set network.br_lan='device'` 新建了一个命名 section
+          和 board.d 生成的匿名 device（name=br-lan）同时存在冲突
+    → 修复：一律用匿名 section（uci add network device）+ name='...'
+          找现有 name=br-lan 的 section 改 macaddr，永不新建第二个（已修）
+
+坑 5：首次编译撞到 "Failed to set time zone: Access denied"
+    → 原因：timedatectl set-timezone 需要 PolicyKit 就绪，GitHub Actions runner
+          偶尔环境没 ready
+    → 修复：多 Run workflow 一次；真撞了多次再切成 ln -sf /etc/localtime 纯文件方式（已记录）
+
+坑 6：Auto-Clean 每天清空所有 Release/Tag
+    → 原因：原作者 Auto-Clean.yml 每天 5 点跑 ophub/delete-releases-workflows
+          releases_keep_latest=0 / workflows_keep_day=0
+    → 修复：整个 Auto-Clean.yml 删除（已修）
+
+坑 7：Cache-Clean 每周把 ccache/dl/toolchain 全清，下次编译又从零开始
+    → 原因：原作者 schedule 每周日 20:00 UTC 跑 gh cache delete --all
+    → 修复：schedule 注释掉，依赖 GitHub 10GB LRU 自动淘汰（已修）
+
+坑 8：dummy0/erspan0/gre0/... 一堆虚拟模板口看着乱
+    → 原因：kmod-dummy/kmod-gre/erspan 等被编进固件，加载时自动建 0 号模板
+    → 修复：GENERAL.txt 显式设 =n；uci-defaults 末尾再加双保险清理循环（已修）
+
+================================================================================
+（本文件结束）
