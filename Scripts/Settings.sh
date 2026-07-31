@@ -188,7 +188,68 @@ uci delete network.wan6_dev 2>/dev/null
 
 # 所有物理口已通过 board.d+DTS patch 进 LAN bridge (br-lan)，无需单独配置。
 
-# ---------- 2. LAN 静态 IP / 掩码 / 网关 / DNS ----------
+# ---------- 2. 自定义三个物理口 MAC 地址 + br-lan 网桥 MAC 跟随 ----------
+# 用户指定：lan1=f8:5e:3c:4c:50:7a  lan2=f8:5e:3c:4c:50:7b  lan3=f8:5e:3c:4c:50:7c
+# 说明：
+#   - 三个物理口分别设置（netifd protocol: none, force_link: 1）
+#   - br-lan 网桥 MAC 显式设置成跟 lan1 一致，避免网桥自动取最小值算法导致
+#     每次重启 MAC 漂移
+#   - 第 1 字节 0xf8 = 11111000，最低位=0（单播 MAC，合法）
+#   - 前 5 字节 f8:5e:3c:4c:50 与原厂 OUI 完全一致，最后 1 字节 7a/7b/7c 递增，
+#     不会和同设备原厂三个口的 79/7a/7b 撞，三个口互相之间也不撞
+LAN1_MAC='f8:5e:3c:4c:50:7a'
+LAN2_MAC='f8:5e:3c:4c:50:7b'
+LAN3_MAC='f8:5e:3c:4c:50:7c'
+BR_LAN_MAC=$LAN1_MAC
+
+# --- 三个物理口：用 uci device 声明，强制 MAC + 强制 link up ---
+# 先清除可能残留的 lan1/lan2/lan3 device section 历史残留
+uci delete network.lan1 2>/dev/null
+uci delete network.lan2 2>/dev/null
+uci delete network.lan3 2>/dev/null
+
+uci set network.lan1='device'
+uci set network.lan1.name='lan1'
+uci set network.lan1.macaddr="$LAN1_MAC"
+
+uci set network.lan2='device'
+uci set network.lan2.name='lan2'
+uci set network.lan2.macaddr="$LAN2_MAC"
+
+uci set network.lan3='device'
+uci set network.lan3.name='lan3'
+uci set network.lan3.macaddr="$LAN3_MAC"
+
+# --- br-lan 网桥：强制跟随 lan1 的自定义 MAC ---
+# network.lan.device 对应网桥设备名（默认 br-lan），
+# 这里直接通过 device section 'br-lan' 设置 macaddr 最稳
+uci delete network.br_lan 2>/dev/null
+uci set network.br_lan='device'
+uci set network.br_lan.name='br-lan'
+uci set network.br_lan.type='bridge'
+uci set network.br_lan.macaddr="$BR_LAN_MAC"
+# 把三个物理口明确挂到 br-lan，不依赖 board.d 自动生成
+uci set network.br_lan.ports='lan1 lan2 lan3'
+
+# 确保 network.lan（逻辑接口）绑定的 device 就是 br-lan
+uci set network.lan.device='br-lan'
+
+# 首次启动也立即生效（在 uci commit 之前就把三个口刷上新 MAC，避免
+# 网口 bring up 时交换机学的还是原厂 MAC）
+if [ -d /sys/class/net/lan1 ]; then
+  ip link set dev lan1 address "$LAN1_MAC" 2>/dev/null || true
+fi
+if [ -d /sys/class/net/lan2 ]; then
+  ip link set dev lan2 address "$LAN2_MAC" 2>/dev/null || true
+fi
+if [ -d /sys/class/net/lan3 ]; then
+  ip link set dev lan3 address "$LAN3_MAC" 2>/dev/null || true
+fi
+if [ -d /sys/class/net/br-lan ]; then
+  ip link set dev br-lan address "$BR_LAN_MAC" 2>/dev/null || true
+fi
+
+# ---------- 3. LAN 静态 IP / 掩码 / 网关 / DNS ----------
 LAN_IP="PLACEHOLDER_LAN_IP"
 LAN_MASK="PLACEHOLDER_LAN_MASK"
 LAN_GW="PLACEHOLDER_LAN_GW"
