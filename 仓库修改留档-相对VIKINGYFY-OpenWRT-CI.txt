@@ -434,9 +434,11 @@ WiFi 驱动     CONFIG_PACKAGE_kmod-ath=n                 完全照抄，不增�
   echo CONFIG_PACKAGE_luci=y                    ← LuCI 总开关
   echo CONFIG_LUCI_LANG_zh_Hans=y               ← 简体中文编译总开关
                                                      （非常关键，之前漏写编译出来是英文）
-  echo CONFIG_PACKAGE_luci-theme-argon=y        ← 仅 Argon 主题，用户指定
-  echo CONFIG_PACKAGE_luci-app-argon-config=y   ← Argon 主题配置器
-（严格保持原作者那 4 行结构，只把主题名替换为 argon；无多余行）
+  echo CONFIG_PACKAGE_luci-theme-argon=y        ← 仅 Argon 主题本体（CSS/HTML/图片），用户指定
+  echo CONFIG_PACKAGE_luci-app-argon-config=n   ← Argon 主题「配置面板」插件
+                                                     （只是改背景/颜色/菜单样式的 GUI，不装完全不影响
+                                                     主题本身使用；后期需要时 opkg 安装即可）
+（保持原作者 4 行结构，只把主题名替换为 argon + 最后一行由 =y 改 =n）
 
 ────────────────────────────────────────
 2.6.2 ATHD Makefile 去 N 结尾（[Settings.sh:77-98]）
@@ -707,8 +709,9 @@ Heredoc 写完之后：
          LuCI 全套核心（luci-base/compat/lib-base/lib-ipkg/lua-runtime）
  8    按 2.6 写 Scripts/Settings.sh：
       a. 写死 5 个旁路由常量（LAN_IP/GW/DNS/MASK）
-      b. .config 追加 4 行：luci / luci-lang-zh-Hans / luci-theme-argon /
-         luci-app-argon-config（非常关键：漏了 zh-Hans = 英文界面）
+      b. .config 追加 4 行：luci / luci-lang-zh-Hans（中文总开关） /
+         luci-theme-argon（主题本体 =y） /
+         luci-app-argon-config（主题配置面板插件 =n，后期 opkg 装）
       c. ATHD Makefile patch（原作者版本，去 attendedsysupgrade 行）
       d. board.d sed：/link,nn6000-v1)/,/;;/ 范围锁死，整行替换为
          ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" ""

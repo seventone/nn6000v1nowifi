@@ -70,7 +70,9 @@ fi
 echo "CONFIG_PACKAGE_luci=y" >> ./.config
 echo "CONFIG_LUCI_LANG_zh_Hans=y" >> ./.config
 echo "CONFIG_PACKAGE_luci-theme-$WRT_THEME=y" >> ./.config
-echo "CONFIG_PACKAGE_luci-app-$WRT_THEME-config=y" >> ./.config
+# luci-app-argon-config 只是主题外观配置面板（改背景/颜色/菜单样式），不装不影响主题本身使用
+# 后期需要改主题样式时通过 opkg 安装即可，固件里不需要编译
+echo "CONFIG_PACKAGE_luci-app-$WRT_THEME-config=n" >> ./.config
 
 # 引入私有扩展配置
 if [ -f "$GITHUB_WORKSPACE/Config/PRIVATE.txt" ]; then
