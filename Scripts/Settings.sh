@@ -160,6 +160,57 @@ if [ -n "$NN6000_DTS" ]; then
 		sed -i '0,/label\s*=\s*"wan"/ s//label = "lan1"/' "$NN6000_DTS"
 	fi
 
+	# ===== 方案A：把 MAC 地址写进 DTS 节点 =====
+	# 目标：驱动 probe 时直接从 DTS 读取 mac-address / local-mac-address，
+	# 这样就不需要为 lan1/lan2/lan3 单独创建 UCI「匿名 device section」
+	# 来写 macaddr —— 避免 LuCI 设备页同时列"内核裸口 + UCI device 段"两份，
+	# 导致每个口显示两次。
+	#
+	# MAC 字节数组（用户指定）：
+	#   lan1 = f8:5e:3c:4c:50:7a  -> 0xF8 0x5E 0x3C 0x4C 0x50 0x7A
+	#   lan2 = f8:5e:3c:4c:50:7b  -> 0xF8 0x5E 0x3C 0x4C 0x50 0x7B
+	#   lan3 = f8:5e:3c:4c:50:7c  -> 0xF8 0x5E 0x3C 0x4C 0x50 0x7C
+	#
+	# 匹配每个 dp2/dp3/dp4 节点（对应 label=lan1/lan2/lan3），在其节点末尾
+	# （也就是最近的一个 }; 闭合之前）追加 mac-address 和 local-mac-address 两
+	# 行属性。对同一个节点，若已经写过就不再追加（用 grep 做判重）。
+	_INSERT_DTS_MAC() {
+		# 参数 1: label 名字 (lan1/lan2/lan3)；参数 2: DTS 字节串
+		_label="$1"; _bytes="$2"
+		# 找到包含 label="$_label" 的 dp 节点的起始行号
+		_start=$(awk -v lbl="$_label" '$0 ~ "label\\s*=\\s*\""lbl"\"" {print NR; exit}' "$NN6000_DTS")
+		if [ -z "$_start" ]; then
+			echo "  [WARN] DTS label=$_label 节点没找到，跳过 MAC 写入"
+			return 0
+		fi
+		# 从 $_start 开始往后，找到该节点的第一个 }; 闭合行号
+		_end=$(awk -v s="$_start" 'NR>s && /^[[:space:]]*\};[[:space:]]*$/ {print NR; exit}' "$NN6000_DTS")
+		if [ -z "$_end" ]; then
+			echo "  [WARN] DTS label=$_label 节点闭合没找到，跳过 MAC 写入"
+			return 0
+		fi
+		# 如果这个范围内已经有 mac-address 属性了就不再加（防重复）
+		if sed -n "${_start},${_end}p" "$NN6000_DTS" | grep -q 'mac-address'; then
+			echo "  DTS label=$_label: 已有 mac-address 节点，跳过"
+			return 0
+		fi
+		# 在第 $_end 行之前插入两行 mac-address 和 local-mac-address
+		_pad=""
+		# 取闭合行 }; 前面的缩进数作为新行的缩进
+		_pad=$(sed -n "${_end}p" "$NN6000_DTS" | sed -n 's/\([[:space:]]*\)\};.*/\1/p')
+		# 若取不出缩进，默认两个 tab
+		[ -z "$_pad" ] && _pad=$(printf '\t\t')
+		# 写入
+		sed -i "${_end}i\\
+${_pad}mac-address = [$_bytes];\\
+${_pad}local-mac-address = [$_bytes];" "$NN6000_DTS"
+		echo "  DTS label=$_label: 写入 mac-address = $_bytes OK"
+	}
+	_INSERT_DTS_MAC "lan1" "f8 5e 3c 4c 50 7a"
+	_INSERT_DTS_MAC "lan2" "f8 5e 3c 4c 50 7b"
+	_INSERT_DTS_MAC "lan3" "f8 5e 3c 4c 50 7c"
+	unset -f _INSERT_DTS_MAC
+
 	echo "NN6000 V1 DTS port labels remapped (WAN→lan1, LAN1→lan2, LAN2→lan3)."
 fi
 
@@ -188,38 +239,44 @@ uci delete network.wan6_dev 2>/dev/null
 
 # 所有物理口已通过 board.d+DTS patch 进 LAN bridge (br-lan)，无需单独配置。
 
-# ---------- 2. 自定义三个物理口 MAC 地址 + br-lan 网桥 MAC 跟随 ----------
+# ---------- 2. 自定义 MAC 地址 + br-lan 网桥 MAC 跟随（方案 A） ----------
 # 用户指定：lan1=f8:5e:3c:4c:50:7a  lan2=f8:5e:3c:4c:50:7b  lan3=f8:5e:3c:4c:50:7c
-# 说明：
-#   - 三个物理口分别写死 MAC
-#   - br-lan 网桥 MAC 显式设置成跟 lan1 一致，避免网桥 MAC 选举重启漂移
-#   - 第 1 字节 0xf8 = 11111000，最低位=0（单播 MAC，合法）
-#   - 前 5 字节 f8:5e:3c:4c:50 与原厂 OUI 一致，最后 1 字节 7a/7b/7c，
-#     与原厂 79/7a/7b 错开，互不冲突
+#           br-lan=跟随 lan1=f8:5e:3c:4c:50:7a
+# 实现方式（方案 A，解决 LuCI 设备页「每个物理口显示两次」问题）：
+#   1) 物理口 MAC 已经在 Settings.sh 的 DTS patch 阶段写进 DTS 节点的
+#      mac-address / local-mac-address 属性（驱动 probe 时直接读），
+#      所以 **这里完全不为 lan1/lan2/lan3 单独创建 UCI device section**，
+#      否则 LuCI 设备页会同时列「内核裸口（来自 DTS）+ UCI device 段」
+#      两份，每个口显示两次。
+#   2) br-lan 网桥 MAC 仍通过 UCI 匿名 section 写死（网桥驱动不会从 DTS
+#      读 MAC，需要显式指定），只改 board.d 已经生成的那个 section，
+#      绝对不新建第二个名为 br-lan 的 device。
+#   3) 再加一层「首次启动 ip link set address」兜底：万一上游某一版
+#      NSS-DP 驱动暂时忽略了 DTS 里的 mac-address，这里再手动刷一遍
+#      保证 MAC 仍是用户指定的。
+# 合法性：
+#   第 1 字节 0xf8=1111_1000，最低位=0（合法单播）；
+#   前 5 字节 f8:5e:3c:4c:50 与原厂 OUI 对齐；
+#   三个口最后 1 字节 7a/7b/7c，与原厂 79/7a/7b 错开不冲突。
 LAN1_MAC='f8:5e:3c:4c:50:7a'
 LAN2_MAC='f8:5e:3c:4c:50:7b'
 LAN3_MAC='f8:5e:3c:4c:50:7c'
 BR_LAN_MAC=$LAN1_MAC
 
-# --- 三个物理口：以「匿名 device section」+ option name = 接口名 形式声明 ---
-# （注意：这里不用有名字的 section，因为我们只需要 netifd 根据 option name
-#  去匹配内核创建出来的 lan1/lan2/lan3 接口即可。
-#  有名字 section 会导致和 board.d 自动生成的匿名 section 显示上重复，
-#  但这里物理口 board.d 不会生成 device section，所以匿名/有名字都可以，
-#  这里用匿名最干净。）
-
+# ---------- 2.1 清理 UCI：物理口绝对不留 device section，避免重复显示 ----------
 # 先清理可能残留的命名 device section（来自上一版错误写法）
 uci delete network.lan1 2>/dev/null
 uci delete network.lan2 2>/dev/null
 uci delete network.lan3 2>/dev/null
 uci delete network.br_lan 2>/dev/null
-# 再清理可能残留的重名匿名 device section（有 name=lan1/lan2/lan3/br-lan 但多余的）
+# 再清理所有 name=lan1/lan2/lan3 的匿名 device section（就是导致 LuCI 设备
+# 页显示两次的罪魁祸首），物理口 MAC 已经通过 DTS 写死了，不需要 UCI。
 _idx=0
 while uci -q get "network.@device[$_idx].name" > /dev/null 2>&1; do
   _name=$(uci -q get "network.@device[$_idx].name" 2>/dev/null)
   case "$_name" in
     lan1|lan2|lan3)
-      # 物理口：删掉老的匿名 section（我们下面重建）
+      # 物理口：一律删除（不保留任何 UCI device 绑定）
       uci -q delete "network.@device[$_idx]" 2>/dev/null || true
       ;;
     br-lan)
@@ -234,25 +291,9 @@ while uci -q get "network.@device[$_idx].name" > /dev/null 2>&1; do
   _idx=$((_idx + 1))
 done
 
-# 重建 3 个物理口的匿名 device section（只写 MAC）
-uci add network device > /dev/null
-uci set "network.@device[-1].name='lan1'"
-uci set "network.@device[-1].macaddr='$LAN1_MAC'"
-
-uci add network device > /dev/null
-uci set "network.@device[-1].name='lan2'"
-uci set "network.@device[-1].macaddr='$LAN2_MAC'"
-
-uci add network device > /dev/null
-uci set "network.@device[-1].name='lan3'"
-uci set "network.@device[-1].macaddr='$LAN3_MAC'"
-
-# --- br-lan 网桥：只改 board.d 已经生成的那个匿名 device section ---
-#  绝对不新建第二个名为 br-lan 的 device section，
-#  否则 LuCI「网络-接口-设备」页面会显示两个 br-lan（上一版就是踩了这个坑）。
-#  board.d 生成的内容一般在第 1 个或第 2 个 device section，带 name='br-lan'
-#  且 type='bridge'，已经写好 list ports lan1/lan2/lan3。
-#  我们只往这个 section 里追加 macaddr，其它不动。
+# ---------- 2.2 只为 br-lan 网桥写 UCI：macaddr + 确认 ports ----------
+# 绝对不新建第二个名为 br-lan 的 device section，
+# 否则 LuCI「网络-接口-设备」页面会显示两个 br-lan（之前踩过的坑）。
 _idx=0
 while uci -q get "network.@device[$_idx].name" > /dev/null 2>&1; do
   if [ "$(uci -q get "network.@device[$_idx].name" 2>/dev/null)" = "br-lan" ]; then
@@ -260,7 +301,6 @@ while uci -q get "network.@device[$_idx].name" > /dev/null 2>&1; do
     # 保险起见：确认 ports 里包含 lan1/lan2/lan3；没有就补上
     _ports=$(uci -q get "network.@device[$_idx].ports" 2>/dev/null)
     if [ -z "$_ports" ]; then
-      # 新版 UCI 用 list ports，一个一个加
       for _p in lan1 lan2 lan3; do
         uci -q del_list "network.@device[$_idx].ports=$_p" 2>/dev/null
         uci add_list "network.@device[$_idx].ports=$_p" 2>/dev/null || true
@@ -271,11 +311,12 @@ while uci -q get "network.@device[$_idx].name" > /dev/null 2>&1; do
   _idx=$((_idx + 1))
 done
 
-# 确保 network.lan（逻辑接口）绑定的 device 就是 br-lan（一般本来就是，保险写一遍）
+# 确保 network.lan（逻辑接口）绑定的 device 就是 br-lan（保险写一遍）
 uci set network.lan.device='br-lan'
 
-# 首次启动也立即生效（在 uci commit 之前就把三个口刷上新 MAC，避免
-# 网口 bring up 时交换机学的还是原厂 MAC）
+# ---------- 2.3 兜底：首次启动立即把 3 个物理口 + 网桥刷上新 MAC ----------
+# （即便 NSS-DP 驱动已经从 DTS 读到正确 MAC，再 ip link set 一次也无害；
+#   如果上游某版驱动暂时忽略了 DTS mac-address，这一步就保证了。）
 if [ -d /sys/class/net/lan1 ]; then
   ip link set dev lan1 address "$LAN1_MAC" 2>/dev/null || true
 fi
@@ -352,24 +393,45 @@ nameserver PLACEHOLDER_LAN_DNS2
 RESOLV_EOF
 chmod 0644 /etc/resolv.conf 2>/dev/null
 
-# ---------- 8. 清理虚拟模板接口（双保险，彻底清掉 dummy0/erspan0/gre0/sit0 等） ----------
+# ---------- 8. 清理虚拟模板接口（双保险，彻底清 dummy0/erspan0/gre0/sit0 等） ----------
 # 说明：GENERAL.txt 里已经把 kmod-dummy/kmod-gre/kmod-erspan/kmod-gretap/
 # kmod-ip6-tunnel/kmod-sit 都设成了 =n，理论上这些模块不编进固件，
-# 开机就不会自动建模板接口。但万一 ImmortalWrt 内核把其中某项做成了
-# built-in（不是 package），或者用户后期装软件包把模块拉回来了，
-# 这里再强制清理一遍，保证 LuCI 设备页永远看不到这些乱七八糟的口。
+# 开机就不会自动建模板接口。但有两种情况会导致清理第一轮不生效：
+#   (1) 某模块被内核做成 built-in，开机比 99-nn6000v1nowifi 还早就建了口，
+#       第一轮清理跑完，后面 systemd/sysfs 又触发一次模板接口注册；
+#   (2) 用户后期 opkg install 了 openvpn/ipsec 之类的包，依赖链把 gre/ip6_tunnel
+#       等 ko 拉回来，重启后模板口又冒出来（最典型就是 ip6gre0 / ip6tnl0 / sit0）。
+# 所以这里做 3 层清理：
+#   ① 主清理循环：清掉所有模板设备
+#   ② 卸载模块（ko 形式的），从源头掐断
+#   ③ 二次循环 + 短暂延迟，清掉模块卸载之后又被"系统残留事件"重新注册出来
+#     的孤儿口（ip6gre0 / ip6tnl0 / sit0 最常见）
+for _pass in 1 2; do
+  for _dev in dummy0 erspan0 gre0 gretap0 ip6gre0 ip6tnl0 sit0; do
+    if [ -d /sys/class/net/$_dev ]; then
+      ip link set dev $_dev down 2>/dev/null || true
+      ip link delete dev $_dev 2>/dev/null || true
+    fi
+  done
+  # dummy 模块如果是 ko 形式加载的（不是 built-in），直接卸载掉
+  rmmod dummy 2>/dev/null || true
+  # gre / ip_gre / ip6_gre / ip6_tunnel / sit / gretap / erspan / ipip 同上
+  for _mod in dummy gre ip_gre gretap ip6_gre ip6_tunnel sit ipip erspan; do
+    rmmod $_mod 2>/dev/null || true
+  done
+  # 第一轮跑完短暂 sleep，给 sysfs/kobject uevent 发完事件的时间，
+  # 第二轮就能把"模块卸载事件又触发模板接口重新注册"出来的孤儿口清掉。
+  if [ $_pass -eq 1 ]; then
+    sleep 1
+  fi
+done
+# 收尾：再把所有可能残留的隧道 / 虚拟接口目录里的内容扫一遍
 for _dev in dummy0 erspan0 gre0 gretap0 ip6gre0 ip6tnl0 sit0; do
   if [ -d /sys/class/net/$_dev ]; then
     ip link set dev $_dev down 2>/dev/null || true
+    ip link delete dev $_dev nomaster 2>/dev/null || true
     ip link delete dev $_dev 2>/dev/null || true
   fi
-done
-# dummy 模块如果是 ko 形式加载的（不是 built-in），直接卸载掉，
-# 避免后面有脚本又自动建 dummy0
-rmmod dummy 2>/dev/null || true
-# gre / ip_gre / ip6_gre / ip6_tunnel / sit 同上
-for _mod in dummy gre ip_gre gretap ip6gre ip6_tunnel sit ipip erspan; do
-  rmmod $_mod 2>/dev/null || true
 done
 
 exit 0

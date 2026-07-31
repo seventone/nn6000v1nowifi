@@ -453,34 +453,70 @@ DTS patch 完成后，配合 2.6.3 board.d 的 LAN 组 "lan1 lan2 lan3"，
     uci delete network.wan6_dev
     （彻底删除，不是 disable；重启也不会重新出现）
 
-  2.6.5.2 自定义 MAC 地址（[UCI_EOF 第 191-290 行]）★ 最关键的一块
+  2.6.5.2 自定义 MAC 地址（方案 A，DTS + uci-defaults 双保险）
+                     ★ 核心目的：解决 LuCI「网络-接口-设备」页每个物理口显示两次
     用户指定：
       lan1 = f8:5e:3c:4c:50:7a
       lan2 = f8:5e:3c:4c:50:7b
       lan3 = f8:5e:3c:4c:50:7c
       br-lan = 跟随 lan1 = f8:5e:3c:4c:50:7a
-    实现：
-      (a) 先清理可能遗留的"命名 device section"（network.lan1 / network.lan2 /
-          network.lan3 / network.br_lan）→ 避免和 board.d 匿名 section 冲突
-          （上一版写 `uci set network.br_lan='device'` 导致 LuCI 显示两个 br-lan）
-      (b) 用 while 循环遍历 network.@device[i]，把重复出现的 name=lan1/lan2/lan3
-          匿名 section 删掉，留空；把第二个及以后的 name=br-lan 匿名 section 删掉
-          （只保留第一个 board.d 生成的）
-      (c) 用 `uci add network device` 分别新建 3 个匿名 device section，
-          每个写 name='lan1/lan2/lan3' 和 macaddr='...'
-      (d) 再次 while 循环找到 name='br-lan' 那个匿名 section：
-          set macaddr（不新建第二个！），如果缺 ports 再 add_list 补 lan1/lan2/lan3
-      (e) 最后 `uci set network.lan.device='br-lan'` 绑定逻辑 LAN 接口到网桥
-      (f) 启动时立即生效：4 个 `if [ -d /sys/class/net/X ]` 块，
-          `ip link set dev X address MAC` 立刻把内核接口刷成新 MAC，
-          避免网口 bring up 时把原厂 MAC 告诉交换机 ARP。
 
-    合法性：
+    为什么用方案 A？
+      早期版本（backup-v3 及以前）的做法是：在 uci-defaults 里分别为 lan1/lan2/lan3
+      各自 `uci add network device` 一个匿名 section 并写 macaddr。但 LuCI 设备页
+      会同时枚举两类数据源：
+        ① ubus call network.device status 返回的内核裸接口（必然有 lan1/lan2/lan3）
+        ② /etc/config/network 里的所有 config device section（若为每个物理口
+          建了 3 个匿名 section，就又多出 3 条 lan1/lan2/lan3）
+      两者不去重，导致设备页看到 2*3 + 1(br-lan) = 7 条，重复的 3 条链路速度
+      显示为 "-"，看着乱。
+
+    方案 A 分两处写入（MAC 同时进 DTS 和 uci-defaults 兜底，双保险）：
+    ┌─────────────────────────────────────────────────────────────────┐
+    │ ① DTS patch（Settings.sh 第 2.6.4 节末尾，label rename 之后）  │
+    │   对每个 dp 节点（label=lan1/lan2/lan3），在节点末尾的 }; 之前  │
+    │   追加两行 DTS 属性：                                           │
+    │       mac-address       = [f8 5e 3c 4c 50 XX];                  │
+    │       local-mac-address = [f8 5e 3c 4c 50 XX];                  │
+    │   lan1 XX=7a, lan2 XX=7b, lan3 XX=7c                            │
+    │   NSS-DP 驱动 probe 时会优先读取这两个属性，驱动初始化出来的     │
+    │   裸口 MAC 直接就是用户指定值，不需要 UCI 再干预。              │
+    │   写入时额外做 3 个保护：                                       │
+    │     - awk 取 label 行号、再找到下一个 }; 行号做范围插入，不     │
+    │       误插到兄弟节点里                                          │
+    │     - 取原闭合行的缩进做新行缩进，对齐 DTS 风格                 │
+    │     - sed grep 判重：已有 mac-address 属性的节点跳过，          │
+    │       防止重复注入（编译环境多次 reconfigure）                │
+    ├─────────────────────────────────────────────────────────────────┤
+    │ ② uci-defaults 99-nn6000v1nowifi 里的清理 + 网桥 MAC + 兜底     │
+    │   (a) 彻底删除所有遗留的                                        │
+    │       · 命名 section：network.lan1 / lan2 / lan3 / br_lan       │
+    │       · 匿名 section：name=lan1 / lan2 / lan3 一律删掉（不     │
+    │         保留任何物理口 UCI device 绑定！）                      │
+    │       · name=br-lan 的匿名 section 只留第一个 board.d 生成     │
+    │         的，从第二个起全部删掉（避免 LuCI 两个 br-lan）        │
+    │   (b) 只对 br-lan 这个 section 写 UCI：set macaddr（网桥驱动   │
+    │       不会从 DTS 读 MAC，必须 UCI 显式指定）+ 若缺 ports 则    │
+    │       add_list 补全 lan1/lan2/lan3                              │
+    │   (c) uci set network.lan.device='br-lan'（逻辑绑定保险）       │
+    │   (d) 最后 4 个 if 块做「首次启动立即生效」兜底：              │
+    │       ip link set lan1/lan2/lan3/br-lan address … —— 即便      │
+    │       某一版 NSS-DP 驱动暂时忽略了 DTS mac-address，这里也能    │
+    │       手动刷对 MAC，重启（uci commit 之后）又由 DTS 再次保证    │
+    └─────────────────────────────────────────────────────────────────┘
+
+    方案 A 结果：
+      物理口 MAC = DTS 属性（驱动读取）+ 兜底 ip link set（首次启动）；
+      UCI network.device section 只剩 1 个：br-lan 网桥（含 ports 3 个 + macaddr）
+      LuCI 设备页展示：uBus 裸口（lan1/lan2/lan3）+ 唯一的 br-lan UCI 设备
+                       = 共 4 条（3+1），不再重复。
+
+    合法性（不变）：
       * 第 1 字节 0xf8 = 1111_1000，最低位 =0，合法单播
       * 前 5 字节 f8:5e:3c:4c:50 与原厂 OUI 对齐
       * 三个口最后 1 字节 7a/7b/7c，与原厂 79/7a/7b 错开不冲突
 
-  2.6.5.3 LAN 静态 IP / 掩码 / 网关 / DNS（[UCI_EOF 第 292 行起]）
+  2.6.5.3 LAN 静态 IP / 掩码 / 网关 / DNS（[UCI_EOF 第 333 行起]）
     PLACEHOLDER_LAN_IP / _MASK / _GW / _DNS1 / _DNS2
     → Heredoc 写完后，用 5 条 sed 把占位符换成脚本开头的常量（[Settings.sh:380-384]）
     实际写入：
@@ -514,13 +550,27 @@ DTS patch 完成后，配合 2.6.3 board.d 的 LAN 组 "lan1 lan2 lan3"，
 
   2.6.5.7 写死 /etc/resolv.conf，避免被别的脚本覆盖回默认 DNS
 
-  2.6.5.8 清理虚拟模板接口（双保险清理）★ 新增
-    for _dev in dummy0 erspan0 gre0 gretap0 ip6gre0 ip6tnl0 sit0:
-      存在则 ip link set down + ip link delete
-    再 rmmod dummy / gre / ip_gre / gretap / ip6gre / ip6_tunnel /
-            sit / ipip / erspan
-    （即便 GENERAL.txt =n 拦不住的 built-in，这里也彻底从运行时删掉，LuCI 设备页
-      只会显示 br-lan + lan1 + lan2 + lan3 + lo，清爽）
+  2.6.5.8 清理虚拟模板接口（三层清理兜底，彻底清掉 ip6gre0/ip6tnl0/sit0）★ 新增
+    为什么升级成三层？
+      第一轮（backup-v3）只做了 1 次 for 循环 + rmmod，但实测刷完机
+      `/sys/class/net` 里仍会出现 ip6gre0 / ip6tnl0 / sit0 这三个隧道
+      模板口——原因有两种：
+        (1) 某模块是 kernel built-in（不是 package ko），GENERAL.txt =n
+            根本拦不住，开机就自动注册模板接口；
+        (2) 第一轮 rmmod 后，sysfs/kobject 触发一次"模块卸载事件 +
+            重新注册"，模板口又被系统建出来了（最典型就是这三个）。
+    所以本轮 backup-v4 升级为"三层清理 + 二次 pass + sleep 1 + 末尾收尾"：
+      Pass 1: for 清 7 个模板口 → rmmod 9 个模块 → sleep 1 等 sysfs 事件
+      Pass 2: 再 for 清一遍 → 再 rmmod 一遍（若 ko 是 built-in，rmmod
+              直接 return 1 但被 || true 吞掉，不报错）
+      收尾:   最后再 for 一遍，每个模板口额外尝试 ip link delete nomaster
+              + delete，保证就算 Pass 2 之后还有残留也被清掉。
+    清理的目标接口列表：
+      dummy0  erspan0  gre0  gretap0  ip6gre0  ip6tnl0  sit0
+    卸载的模块列表：
+      dummy  gre  ip_gre  gretap  ip6_gre  ip6_tunnel  sit  ipip  erspan
+    结果：开机后 /sys/class/net 只会有 lo + lan1/2/3 + br-lan 这 5 个接口。
+
 
 Heredoc 写完之后：
   * 5 条 sed 替换 5 个 PLACEHOLDER_* → 真正的 IP/GW/DNS
@@ -608,16 +658,38 @@ Heredoc 写完之后：
          autocore / cpufreq / ip-full / xz-utils / proto-bonding /
          LuCI 全套核心（luci-base/compat/lib-base/lib-ipkg/lua-runtime）
  8    按 2.6 写 Scripts/Settings.sh：
-      a. 写死 5 个旁路由常量
-      b. .config 追加 luci + zh-Hans + argon 主题两行
-      c. ATHD Makefile patch（原作者版本）
-      d. board.d sed：把 link_nn6000-v1 的 LAN 组改成 lan1 lan2 lan3，WAN 空
-      e. DTS sed：LAN2→lan3 → LAN1→lan2 → WAN→lan1（倒序避免覆盖）
-      f. 写 99-nn6000v1nowifi uci-defaults（本留档 2.6.5 的 8 段）
+      a. 写死 5 个旁路由常量（LAN_IP/GW/DNS/MASK）
+      b. .config 追加 4 行：luci / luci-lang-zh-Hans / luci-theme-argon /
+         luci-app-argon-config（非常关键：漏了 zh-Hans = 英文界面）
+      c. ATHD Makefile patch（原作者版本，去 attendedsysupgrade 行）
+      d. board.d sed：/link,nn6000-v1)/,/;;/ 范围锁死，整行替换为
+         ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" ""
+         （不加范围误伤其它设备；不用 \s\+ 正则避免 BRE 不支持）
+      e. DTS 两步 patch（backup-v4 新增，注意第 2 个 MAC 注入块）：
+         e1) 网口 label 倒序 rename：LAN2→lan3 → LAN1→lan2 → WAN→lan1
+             （顺序不能反，反了会互相覆盖）
+         e2) 【backup-v4 新增】为 3 个 dp 节点写入 DTS mac-address 和
+             local-mac-address 属性：
+               lan1: f8 5e 3c 4c 50 7a
+               lan2: f8 5e 3c 4c 50 7b
+               lan3: f8 5e 3c 4c 50 7c
+             写入方式：用 awk 取 label 行号 + 下一个 }; 行号，
+             在 }; 前插入两行，并 grep 判重（已有就不重复）。
+             这一步必须做——否则在 uci-defaults 里为 3 个物理口建 UCI
+             device section 会导致 LuCI 设备页每个物理口重复显示两次。
+      f. 写 99-nn6000v1nowifi uci-defaults（本留档 2.6.5 的 8 段），
+         重点：8 段里的 MAC 段**不要再**为 lan1/lan2/lan3 建 UCI device
+         section，只做清理遗留命名/匿名 section + 只为 br-lan 写
+         macaddr + 末尾 ip link set 兜底（MAC 已经由 e2 的 DTS 保证）。
+         8 段里的虚拟口清理要按三层清理（两次 pass + sleep1 + 收尾）写，
+         否则 ip6gre0/ip6tnl0/sit0 清理不净。
  9    按 2.2.1 改 NN6000V1NOWIFI.yml name、on（仅 workflow_dispatch）、
       WRT_THEME=argon、WRT_IP=10.0.0.30
-10    远端 git push 即可。还原 tag：nn6000v1nowifi-backup-v3
-11    （可选）以后出改动再打 backup-v4 / v5 / ... tag 保存状态。
+10    远端 git push 即可。还原 tag（最新最全）：nn6000v1nowifi-backup-v4
+      — 旧版存档：backup-v3（MAC 用 UCI device section 方案，LuCI 双显重复）
+                         backup-v2（还没修 lan3 进桥 / 中文 / 自动清理）
+                         backup-v1（最初状态）
+11    （可选）以后出改动再打 backup-v5 / v6 / ... tag 保存状态。
 
 ================================================================================
 5. 已知坑 & 修复回顾（避免再犯）
@@ -655,8 +727,28 @@ Heredoc 写完之后：
     → 修复：schedule 注释掉，依赖 GitHub 10GB LRU 自动淘汰（已修）
 
 坑 8：dummy0/erspan0/gre0/... 一堆虚拟模板口看着乱
-    → 原因：kmod-dummy/kmod-gre/erspan 等被编进固件，加载时自动建 0 号模板
-    → 修复：GENERAL.txt 显式设 =n；uci-defaults 末尾再加双保险清理循环（已修）
+    → 原因：kmod-dummy/kmod-gre/erspan 等被编进固件，加载时自动建 0 号模板；
+           尤其 ip6gre0 / ip6tnl0 / sit0 很容易在内核做成 built-in，
+           第一轮清理跑完 sysfs 事件又把模板口注册出来
+    → 修复（backup-v4 三层清理）：
+         ① GENERAL.txt 显式 =n
+         ② uci-defaults 8 段做 Pass1/sleep1/Pass2 + 末尾收尾 for 循环
+         ③ rmmod 9 个模块（dummy gre ip_gre gretap ip6_gre ip6_tunnel
+            sit ipip erspan），ko 形式的从源头掐断
+
+坑 9：LuCI「网络-接口-设备」页每个物理口显示两次（设备页共 7 条而不是 4 条）
+    → 原因：LuCI 设备页同时从 ① ubus 内核裸接口（必定有 lan1/2/3）
+                           ② /etc/config/network 的 device section 两份读
+           不去重，所以若为 3 个物理口各自建 UCI device section 写 macaddr，
+           每个口各列两次，链路速度一份正常一份 "-"
+    → 修复（backup-v4 方案 A，推荐）：
+         ① MAC 地址改从 DTS 注入：在每个 dp 节点（label=lan1/2/3）}; 前
+           追加 mac-address / local-mac-address 属性，驱动 probe 直接读
+         ② uci-defaults 里把 name=lan1/lan2/lan3 的匿名 / 命名 device
+           section **一律删掉**，不保留任何物理口 UCI device 绑定
+         ③ 只对 br-lan 写 UCI device section（网桥 MAC 必须 UCI 指定）
+         ④ 末尾加 ip link set 4 个 if 块做兜底（MAC 从两条路保证）
+        结果：LuCI 设备页共 4 条 = lan1/2/3 + br-lan，不再重复
 
 ================================================================================
 （本文件结束）
