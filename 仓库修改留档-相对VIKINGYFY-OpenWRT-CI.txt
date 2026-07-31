@@ -741,7 +741,7 @@ Heredoc 写完之后：
                            ② /etc/config/network 的 device section 两份读
            不去重，所以若为 3 个物理口各自建 UCI device section 写 macaddr，
            每个口各列两次，链路速度一份正常一份 "-"
-    → 修复（backup-v4 方案 A，推荐）：
+    → 修复（backup-v4 方案 A，backup-v4.1 两个子 bug 修正，推荐）：
          ① MAC 地址改从 DTS 注入：在每个 dp 节点（label=lan1/2/3）}; 前
            追加 mac-address / local-mac-address 属性，驱动 probe 直接读
          ② uci-defaults 里把 name=lan1/lan2/lan3 的匿名 / 命名 device
@@ -749,6 +749,27 @@ Heredoc 写完之后：
          ③ 只对 br-lan 写 UCI device section（网桥 MAC 必须 UCI 指定）
          ④ 末尾加 ip link set 4 个 if 块做兜底（MAC 从两条路保证）
         结果：LuCI 设备页共 4 条 = lan1/2/3 + br-lan，不再重复
+    → 子坑 9-a（backup-v4.1 修复）：`uci show network | grep -c @device` = 5 个，
+           但 while 循环只扫到 1 个（br-lan），剩下 4 个"没有 name 字段的空壳
+           匿名 device section"根本没被处理
+        原因：之前 while 条件用的是 `uci get .name` 作为存在性判断，没 name
+           字段的 section 直接被 while 条件拦截跳过，连 section 本身都没进
+        修复：把条件改成 `uci -q show "network.@device[$_idx]"`（section 索引
+           存在就进循环），并分 4 类判断：
+           ① 没有 name 字段 → 空壳，删
+           ② name=lan1/2/3 → 物理口绑定，删
+           ③ name=br-lan → 第一个留（_seen_brlan=1 挡掉第二个）
+           ④ name=其他 → 一律删（旁路由不需要额外绑定）
+           同时「删完不递增索引，continue 回去处理当前索引」，避免删完
+           section 前移造成漏删。
+    → 子坑 9-b（backup-v4.1 修复）：br-lan 配置页 MAC 地址填的是
+           `'f8:5e:3c:4c:50:7a'`（外面多一对单引号），实际生效的 MAC 没变
+        原因：写了 `uci set "...macaddr='$BR_LAN_MAC'"` — 外层双引号已经
+           让 shell 解析变量，内层多写的一对单引号被 shell 当普通字符
+           保留，UCI 存的原始值就是带引号的字符串，bridge 驱动不认识，
+           网桥 MAC 继续用 permaddr。
+        修复：去掉内层单引号，只保留外层双引号：
+           `uci set "network.@device[$_idx].macaddr=$BR_LAN_MAC"`
 
 ================================================================================
 （本文件结束）

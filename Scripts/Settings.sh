@@ -269,35 +269,64 @@ uci delete network.lan1 2>/dev/null
 uci delete network.lan2 2>/dev/null
 uci delete network.lan3 2>/dev/null
 uci delete network.br_lan 2>/dev/null
-# 再清理所有 name=lan1/lan2/lan3 的匿名 device section（就是导致 LuCI 设备
-# 页显示两次的罪魁祸首），物理口 MAC 已经通过 DTS 写死了，不需要 UCI。
+# 再清理匿名 device section：
+#   - 条件改为"section 索引存在就处理"，而不是"能读到 .name 才处理"
+#     （之前的写法会放过"没有 name 字段的空壳匿名 section"，导致
+#      uci show | grep -c @device 出现 5 个但 while 只扫到 1 个的 bug。）
+#   - 删除规则：
+#      ① name=lan1/lan2/lan3 → 物理口绑定，一律删
+#      ② name=br-lan  → 第一个保留（board.d 生成的），第二个及以后删
+#      ③ name=其他非空 → 不认识的 device，一律删（旁路由不需要额外绑定）
+#      ④ 没有 name 字段 → 空壳 section，一律删
+_seen_brlan=''
 _idx=0
-while uci -q get "network.@device[$_idx].name" > /dev/null 2>&1; do
+while uci -q show "network.@device[$_idx]" > /dev/null 2>&1; do
   _name=$(uci -q get "network.@device[$_idx].name" 2>/dev/null)
-  case "$_name" in
-    lan1|lan2|lan3)
-      # 物理口：一律删除（不保留任何 UCI device 绑定）
-      uci -q delete "network.@device[$_idx]" 2>/dev/null || true
-      ;;
-    br-lan)
-      # 网桥：删掉重复出现的第二个以后的匿名 section，留第一个 board.d 生成的
-      if [ -n "$_seen_brlan" ]; then
-        uci -q delete "network.@device[$_idx]" 2>/dev/null || true
-      else
-        _seen_brlan=1
-      fi
-      ;;
-  esac
+  _drop=0
+  if [ -z "$_name" ]; then
+    # ④ 没有 name 的空壳匿名 section：直接删
+    _drop=1
+  else
+    case "$_name" in
+      lan1|lan2|lan3)
+        # ① 物理口：一律删除（不保留任何 UCI device 绑定）
+        _drop=1
+        ;;
+      br-lan)
+        # ② 网桥：第一个保留，第二个及以后删
+        if [ -n "$_seen_brlan" ]; then
+          _drop=1
+        else
+          _seen_brlan=1
+        fi
+        ;;
+      *)
+        # ③ name=其他：一律删，旁路由不需要额外 device 绑定
+        _drop=1
+        ;;
+    esac
+  fi
+  if [ "$_drop" -eq 1 ]; then
+    uci -q delete "network.@device[$_idx]" 2>/dev/null || true
+    # 删完索引不递增：下一个 section 会"掉"到当前索引位置，
+    # 必须重新处理当前索引，否则中间会漏删。
+    continue
+  fi
   _idx=$((_idx + 1))
 done
 
 # ---------- 2.2 只为 br-lan 网桥写 UCI：macaddr + 确认 ports ----------
 # 绝对不新建第二个名为 br-lan 的 device section，
 # 否则 LuCI「网络-接口-设备」页面会显示两个 br-lan（之前踩过的坑）。
+# 注意：macaddr 赋值只用外层双引号，不要再加内层单引号——
+#       之前写过 uci set "...macaddr='$BR_LAN_MAC'"，shell 把内层 ' 当成
+#       普通字符保留，UCI 实际存进去的值带一对多余的单引号（LuCI 页面
+#       显示为 "'xx:xx:xx'"），会导致 netifd / bridge 驱动拿到的是带引号
+#       的非法 MAC 字符串，网桥 MAC 实际不会生效，网卡可能继续用 permaddr。
 _idx=0
-while uci -q get "network.@device[$_idx].name" > /dev/null 2>&1; do
+while uci -q show "network.@device[$_idx]" > /dev/null 2>&1; do
   if [ "$(uci -q get "network.@device[$_idx].name" 2>/dev/null)" = "br-lan" ]; then
-    uci set "network.@device[$_idx].macaddr='$BR_LAN_MAC'"
+    uci set "network.@device[$_idx].macaddr=$BR_LAN_MAC"
     # 保险起见：确认 ports 里包含 lan1/lan2/lan3；没有就补上
     _ports=$(uci -q get "network.@device[$_idx].ports" 2>/dev/null)
     if [ -z "$_ports" ]; then
