@@ -352,6 +352,26 @@ nameserver PLACEHOLDER_LAN_DNS2
 RESOLV_EOF
 chmod 0644 /etc/resolv.conf 2>/dev/null
 
+# ---------- 8. 清理虚拟模板接口（双保险，彻底清掉 dummy0/erspan0/gre0/sit0 等） ----------
+# 说明：GENERAL.txt 里已经把 kmod-dummy/kmod-gre/kmod-erspan/kmod-gretap/
+# kmod-ip6-tunnel/kmod-sit 都设成了 =n，理论上这些模块不编进固件，
+# 开机就不会自动建模板接口。但万一 ImmortalWrt 内核把其中某项做成了
+# built-in（不是 package），或者用户后期装软件包把模块拉回来了，
+# 这里再强制清理一遍，保证 LuCI 设备页永远看不到这些乱七八糟的口。
+for _dev in dummy0 erspan0 gre0 gretap0 ip6gre0 ip6tnl0 sit0; do
+  if [ -d /sys/class/net/$_dev ]; then
+    ip link set dev $_dev down 2>/dev/null || true
+    ip link delete dev $_dev 2>/dev/null || true
+  fi
+done
+# dummy 模块如果是 ko 形式加载的（不是 built-in），直接卸载掉，
+# 避免后面有脚本又自动建 dummy0
+rmmod dummy 2>/dev/null || true
+# gre / ip_gre / ip6_gre / ip6_tunnel / sit 同上
+for _mod in dummy gre ip_gre gretap ip6gre ip6_tunnel sit ipip erspan; do
+  rmmod $_mod 2>/dev/null || true
+done
+
 exit 0
 UCI_EOF
 chmod +x "$UCI_DEFAULTS_DIR/99-nn6000v1nowifi"

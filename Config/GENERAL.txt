@@ -10,7 +10,16 @@ CONFIG_PACKAGE_kmod-ata-ahci=y
 CONFIG_PACKAGE_kmod-ata-core=y
 CONFIG_PACKAGE_kmod-bonding=y
 CONFIG_PACKAGE_kmod-dsa=y
-CONFIG_PACKAGE_kmod-dummy=y
+# 旁路由不需要虚拟空接口/隧道模板口（dummy0/erspan0/gre0/sit0等），
+# 这些驱动加载会自动建0号模板接口，LuCI设备页看着乱、也完全没用
+CONFIG_PACKAGE_kmod-dummy=n
+# 隧道相关 kmod：后期有需要通过软件包装，不编译进固件
+#  禁用后开机不会自动建 erspan0/gre0/gretap0/ip6gre0/ip6tnl0/sit0
+CONFIG_PACKAGE_kmod-gre=n
+CONFIG_PACKAGE_kmod-erspan=n
+CONFIG_PACKAGE_kmod-gretap=n
+CONFIG_PACKAGE_kmod-ip6-tunnel=n
+CONFIG_PACKAGE_kmod-sit=n
 CONFIG_PACKAGE_kmod-fs-btrfs=y
 CONFIG_PACKAGE_kmod-fs-ksmbd=y
 CONFIG_PACKAGE_kmod-fuse=y
