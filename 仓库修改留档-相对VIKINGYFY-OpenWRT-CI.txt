@@ -770,6 +770,29 @@ Heredoc 写完之后：
               macaddr=$BR_LAN_MAC（纯 MAC，不带额外引号，注意子坑9-b）
               / add_list ports=lan1 lan2 lan3
            → 最终 UCI 里匿名 device 必然 = 1 个（就是我们新建的那一个）。
+    → 子坑 9-c（backup-v4.3 修复，时序终局）：原子重建生效了，
+           @device[0] 内容完全正确，但 `uci show network | grep -c @device`
+           仍然稳定 = 5（1 个正确 + 4 个净空壳）。
+        原因：OpenWrt/ImmortalWrt 启动时序差异：
+           ① uci-defaults 脚本在 preinit 阶段执行（此时 netifd 还没启动），
+              执行完系统会 rm -f /etc/uci-defaults/*；
+           ② 然后才进入 rcS 按优先级启动服务：S20 network（= netifd 启动），
+              netifd 读 /etc/board.json 初始化网口时，内部多次调用
+              `uci add network device` 却不写 name/type，在 99- 清理完成
+              之后又新生成 4 个裸空壳。
+        → 简单说：不是"没删掉"，是"我们刚扫干净，后面 netifd 又加了 4 个"。
+        修复（每次开机扫尾）：
+           在 base-files/files 下新增 init 脚本
+              `/etc/init.d/nn6000-cleanup`，START=21
+              （正好在 S20 network 之后，S40 firewall 之前）
+           并在 rc.d 建软链 `S21nn6000-cleanup -> ../init.d/nn6000-cleanup`
+           start() 函数执行的内容与 99- 的原子重建完全一致：
+              删命名 device → while 删 @device[0] 到没有 →
+              uci add 1 个 → type/name/macaddr/ports 写齐 →
+              uci commit network → ubus call network reload
+           因为 START=21 晚于 S20 netifd 启动，这一次重建后不会再有任何
+           系统组件再往 UCI 里 `add network device`，所以最终匿名 device
+           计数必然 = 1（LuCI 设备页也不再有多的条目）。
     → 子坑 9-b（backup-v4.1 修复）：br-lan 配置页 MAC 地址填的是
            `'f8:5e:3c:4c:50:7a'`（外面多一对单引号），实际生效的 MAC 没变
         原因：写了 `uci set "...macaddr='$BR_LAN_MAC'"` — 外层双引号已经
