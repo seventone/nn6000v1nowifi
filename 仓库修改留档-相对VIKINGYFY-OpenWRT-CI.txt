@@ -269,8 +269,9 @@ WiFi 驱动     CONFIG_PACKAGE_kmod-ath=n                 完全照抄，不增�
                CONFIG_TARGET_PER_DEVICE_ROOTFS=y   保留
                CONFIG_TARGET_ROOTFS_INITRAMFS=n    保留（不编译 initramfs 镜像）
 
-内核调整       kmod-ata-ahci / ata-core            保留（SATA/NVME 旁路由要存东西用）
-               kmod-bonding / dsa                   保留（桥接/网口依赖）
+内核调整       kmod-ata-ahci / ata-core            删除（NN6000 无硬盘 / 无 SATA 接口，
+                                                                 不需要存储扩展；后期要用 opkg 装）
+               kmod-bonding / dsa                   保留（桥接/网口依赖，系统必需）
                kmod-dummy=y                         改 =n  ← 新增显式不编译，
                                                                  不开机出 dummy0
                【新增 6 行 =n】                                 不开机出隧道模板口：
@@ -283,8 +284,13 @@ WiFi 驱动     CONFIG_PACKAGE_kmod-ath=n                 完全照抄，不增�
                                                                  自动编译的模块显式
                                                                  关掉，没有打开新东西，
                                                                  符合"只删不加"的精神)
-               kmod-fs-btrfs / kmod-fs-ksmbd        保留（文件系统）
-               kmod-fuse / kmod-inet-diag /
+               kmod-fs-btrfs / kmod-fs-ksmbd        删除（NN6000 无硬盘，不需要
+                                                                 Btrfs / SMB 内核共享。
+                                                                 ksmbd 和 samba4 都是后期
+                                                                 需要挂盘时才 opkg 装）
+               kmod-fuse                            删除（用户态文件系统，后期需要
+                                                                 再 opkg 装 kmod-fuse）
+               kmod-inet-diag /
                kmod-inet-mptcp-diag                 保留（网络诊断）
                kmod-mtd-rw / kmod-netlink-diag      保留
                kmod-nf-nat6 / nft-arp /
@@ -293,8 +299,10 @@ WiFi 驱动     CONFIG_PACKAGE_kmod-ath=n                 完全照抄，不增�
                nft-fullcone / nft-nat /
                nft-netdev / nft-offload /
                nft-queue / nft-socket /
-               nft-tproxy / nft-xfrm                保留（防火墙/NSS/nftables 全套）
-               kmod-nvme                             保留（NVMe 盘）
+               nft-tproxy / nft-xfrm                保留（防火墙/NSS/nftables 全套，系统必需）
+               kmod-nvme                             删除（NN6000 没有 NVMe / M.2 SSD，
+                                                                 不需要存储扩展；
+                                                                 后期需要时 opkg 装）
                kmod-ovpn-backports                   保留（以后装 OpenVPN 依赖）
                kmod-sound-core=y                     删（旁路由不需要声音）
                kmod-tun                               保留（TUN 不自动建模板口）
@@ -305,23 +313,40 @@ WiFi 驱动     CONFIG_PACKAGE_kmod-ath=n                 完全照抄，不增�
                kmod-wireguard=y                       保留（以后装 luci-app-wireguard
                                                                  有用）
 
-组件调整       autocore / automount / blkid /
-               cfdisk / cgdisk / coremark /
-               cpufreq / curl / dmesg /
-               exfat-fsck / exfat-mkfs /
-               fdisk / gdisk / htop / iperf3 /
-               ip-full / libimobiledevice /
-               libnvme / lsblk /                     这些全部保留
-               mmc-utils / nand-utils /
-               nvme-cli / openssh-keygen /
-               openssh-sftp-server / openssl-util /
-               proto-bonding / sfdisk / sgdisk /
-               smartmontools / smartmontools-drivedb /
-               usb-modeswitch / usbmuxd / usbutils /
-               xz-utils
-               luci-base / luci-compat /
-               luci-lib-base / luci-lib-ipkg /
-               luci-lua-runtime / luci-proto-relay
+组件调整       ┌──────────────────────────────────────────────────────────────────┐
+               │ 【保留的】系统/网络/LuCI 必需组件（全部保持 =y）              │
+               │  autocore          核心调度 / 硬件信息识别（系统必需）         │
+               │  cpufreq           CPU 调频（IPQ6018 温控 / 功耗必备）         │
+               │  ip-full           完整 iproute2 工具包（网络诊断必备）         │
+               │  luci-base / luci-compat / luci-lib-base /                    │
+               │   luci-lib-ipkg / luci-lua-runtime                             │
+               │                    LuCI Web 界面全套核心（系统必需）           │
+               │  proto-bonding     绑定接口协议（bonding 内核模块配套，         │
+               │                    我们三桥接模式不需要但不删无害，留着兼容）   │
+               │  xz-utils          压缩/解压工具（opkg 包管理必备）             │
+               └──────────────────────────────────────────────────────────────────┘
+
+               ┌──────────────────────────────────────────────────────────────────┐
+               │ 【本次删除】纯 HDD/存储/挂载相关组件（NN6000 无硬盘，不需要）    │
+               │  automount         热插拔自动挂载（无硬盘/U盘不需要）           │
+               │  blkid             块设备 UUID 识别（无存储不需要）              │
+               └──────────────────────────────────────────────────────────────────┘
+               以上两项原作者 =y，我们已从 GENERAL.txt 移除；需要时 opkg 装。
+
+               ┌──────────────────────────────────────────────────────────────────┐
+               │ 【之前多轮精简已删除】（原作者 =y，当前 GENERAL.txt 已无）       │
+               │  ⚠️ 全部不是系统必需，后期需要都能 opkg install 装回来：         │
+               │   coremark curl dmesg htop iperf3          诊断/性能/网络工具    │
+               │   libimobiledevice usbmuxd usbutils         iOS/USB 工具         │
+               │   libnvme nvme-cli mmc-utils nand-utils    NVMe/eMMC/NAND 工具   │
+               │   lsblk luci-proto-relay                   块设备/中继协议       │
+               │   openssh-keygen openssh-sftp-server       SSH 组件              │
+               │   openssl-util                                OpenSSL CLI 工具    │
+               │   cfdisk cgdisk fdisk gdisk sfdisk sgdisk  6 种分区工具          │
+               │   exfat-fsck exfat-mkfs                   exFAT 文件系统工具      │
+               │   smartmontools smartmontools-drivedb     硬盘 SMART 健康检测    │
+               │   usb-modeswitch                            USB 网卡模式切换       │
+               └──────────────────────────────────────────────────────────────────┘
 
 删除的组件     luci-app-* （除主题外，其它应用全删）       严格遵循"以后装"
 
@@ -541,10 +566,16 @@ Heredoc 写完之后：
   - 主题：仅 Argon
   - 语言：zh-Hans 编进固件（英文坑已修）
   - 零插件：homeproxy / autoreboot / samba4 / upnp / wolultra 等全删
-  - 零 USB/零声音/零视频
-  - 虚拟口 kmod（dummy/gre/erspan/ip6-tunnel/sit）不编译
-  - NSS 全套 kmod + nftables 全套 + SATA/NVMe / 文件系统 / 网络诊断工具 保留
-  - tun / wireguard / bonding / veth 保留（以后装 VPN 要用）
+  - 零 USB / 零声音 / 零视频
+  - 虚拟口 kmod（dummy / gre / erspan / gretap / ip6-tunnel / sit）都不编译
+  - **零 HDD / SATA / NVMe / 存储扩展**：
+    kmod-ata-ahci / kmod-ata-core / kmod-nvme / kmod-fs-btrfs / kmod-fs-ksmbd / kmod-fuse / automount / blkid / mmc-utils / nand-utils / nvme-cli / libnvme / cfdisk / cgdisk / fdisk / gdisk / sfdisk / sgdisk / smartmontools / exfat-* / usb-storage*  → 全部不编译
+    （NN6000 无硬盘 / 无 SATA 接口 / 无 NVMe M.2，旁路由模式不需要挂盘）
+  - 网络 / 防火墙核心全套 保留：
+    NSS kmod + nftables 全套 + kmod-bonding/kmod-dsa + kmod-inet-diag/kmod-mptcp-diag/kmod-mtd-rw/kmod-netlink-diag + kmod-nf-nat6
+  - 后期 VPN / 容器 / 网络诊断 友好组件 保留：
+    kmod-tun / kmod-wireguard / kmod-ovpn-backports / kmod-veth / proto-bonding /
+    autocore / cpufreq / ip-full / xz-utils / LuCI Web 界面核心全套
 
 ================================================================================
 4. 日后重改清单（按步骤走就能复刻当前状态）
@@ -558,8 +589,24 @@ Heredoc 写完之后：
  4    按 2.2 改 WRT-CORE.yml（双缓存、固件筛选+命名、Release 文案）
  5    按 2.3 把 Cache-Clean.yml schedule 注释掉
  6    按 2.4 改 IPQ60XX-WIFI-NO.txt（只留 link_nn6000-v1，其他设备全删）
- 7    按 2.5 改 GENERAL.txt（严格只删不加：插件/USB/声音/kmod-dummy/…，
-      再加 6 行 =n 的隧道 kmod）
+ 7    按 2.5 改 GENERAL.txt（严格只删不加）：
+      ① 所有 luci-app-* 应用、samba4/upnp/wolultra/homeproxy/partexp 全删
+      ② 所有 USB / 声音 / video 相关 kmod+组件全删
+      ③ kmod-dummy → =n；另外显式加 6 行 =n：
+         kmod-gre / kmod-erspan / kmod-gretap / kmod-ip6-tunnel / kmod-sit
+      ④ 所有 HDD/SATA/NVMe/存储扩展相关：
+         kmod-ata-ahci / kmod-ata-core / kmod-nvme /
+         kmod-fs-btrfs / kmod-fs-ksmbd / kmod-fuse /
+         automount / blkid / mmc-utils / nand-utils /
+         nvme-cli / libnvme / cfdisk / cgdisk / fdisk /
+         gdisk / sfdisk / sgdisk / smartmontools /
+         smartmontools-drivedb / exfat-fsck / exfat-mkfs
+         全部移除（NN6000 无硬盘、不需要存储扩展）
+      ⑤ 必须保留：kmod-bonding / dsa / nf-nat6 / nft-全套 /
+         inet-diag / mptcp-diag / mtd-rw / netlink-diag /
+         ovpn-backports / tun / veth / wireguard /
+         autocore / cpufreq / ip-full / xz-utils / proto-bonding /
+         LuCI 全套核心（luci-base/compat/lib-base/lib-ipkg/lua-runtime）
  8    按 2.6 写 Scripts/Settings.sh：
       a. 写死 5 个旁路由常量
       b. .config 追加 luci + zh-Hans + argon 主题两行
