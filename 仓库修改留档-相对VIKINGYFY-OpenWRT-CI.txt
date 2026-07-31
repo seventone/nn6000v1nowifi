@@ -749,19 +749,27 @@ Heredoc 写完之后：
          ③ 只对 br-lan 写 UCI device section（网桥 MAC 必须 UCI 指定）
          ④ 末尾加 ip link set 4 个 if 块做兜底（MAC 从两条路保证）
         结果：LuCI 设备页共 4 条 = lan1/2/3 + br-lan，不再重复
-    → 子坑 9-a（backup-v4.1 修复）：`uci show network | grep -c @device` = 5 个，
-           但 while 循环只扫到 1 个（br-lan），剩下 4 个"没有 name 字段的空壳
-           匿名 device section"根本没被处理
-        原因：之前 while 条件用的是 `uci get .name` 作为存在性判断，没 name
-           字段的 section 直接被 while 条件拦截跳过，连 section 本身都没进
-        修复：把条件改成 `uci -q show "network.@device[$_idx]"`（section 索引
-           存在就进循环），并分 4 类判断：
-           ① 没有 name 字段 → 空壳，删
-           ② name=lan1/2/3 → 物理口绑定，删
-           ③ name=br-lan → 第一个留（_seen_brlan=1 挡掉第二个）
-           ④ name=其他 → 一律删（旁路由不需要额外绑定）
-           同时「删完不递增索引，continue 回去处理当前索引」，避免删完
-           section 前移造成漏删。
+    → 子坑 9-a（backup-v4.1 初修，仍有漏网；backup-v4.2 终极修，100% 只剩1个）：
+           `uci show network | grep -c @device` = 5 个，但 while 循环只扫到 1 个
+           （br-lan），剩下 4 个"没有 name 字段的空壳匿名 device section"
+           根本没被处理
+        v4.1 原因 & 临时修复（实测仍漏）：
+           条件从 `uci get .name` 换成 `uci -q show @device[N]` 后，真实设备
+           上稳定 = 5。反推：libuci 在遇到"完全空、连 type 字段都没有"的
+           section 时 exit code 不可靠；或者 board.d/02_network/netifd
+           自己在首次启动某个时序额外调过 `uci add network device` 却没写
+           name/type，留下 4 个裸空壳，任何遍历判断逻辑都可能漏。
+        v4.2 终极修复（暴力清空 + 原子重建 = 绝对只有1个）：
+           放弃"遍历 + 按内容判断删"这条路线，改为：
+           ① 命名 device section（network.lan1/2/3/br_lan）先 4 行 delete 清光
+           ② while 存在 @device[0] → 一直删 @device[0]，**根本不判断内容**
+              （每次删后面的自动前移，所以删 0 号永远命中最前面那个，
+               空壳/畸形/只含 type 没 name 一律扫光，0 漏网）
+           ③ `uci add network device` 明确新建 1 个 @device[0]
+           ④ 一次性写齐 4 字段：type=bridge / name=br-lan /
+              macaddr=$BR_LAN_MAC（纯 MAC，不带额外引号，注意子坑9-b）
+              / add_list ports=lan1 lan2 lan3
+           → 最终 UCI 里匿名 device 必然 = 1 个（就是我们新建的那一个）。
     → 子坑 9-b（backup-v4.1 修复）：br-lan 配置页 MAC 地址填的是
            `'f8:5e:3c:4c:50:7a'`（外面多一对单引号），实际生效的 MAC 没变
         原因：写了 `uci set "...macaddr='$BR_LAN_MAC'"` — 外层双引号已经

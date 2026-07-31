@@ -263,81 +263,64 @@ LAN2_MAC='f8:5e:3c:4c:50:7b'
 LAN3_MAC='f8:5e:3c:4c:50:7c'
 BR_LAN_MAC=$LAN1_MAC
 
-# ---------- 2.1 清理 UCI：物理口绝对不留 device section，避免重复显示 ----------
-# 先清理可能残留的命名 device section（来自上一版错误写法）
-uci delete network.lan1 2>/dev/null
-uci delete network.lan2 2>/dev/null
-uci delete network.lan3 2>/dev/null
-uci delete network.br_lan 2>/dev/null
-# 再清理匿名 device section：
-#   - 条件改为"section 索引存在就处理"，而不是"能读到 .name 才处理"
-#     （之前的写法会放过"没有 name 字段的空壳匿名 section"，导致
-#      uci show | grep -c @device 出现 5 个但 while 只扫到 1 个的 bug。）
-#   - 删除规则：
-#      ① name=lan1/lan2/lan3 → 物理口绑定，一律删
-#      ② name=br-lan  → 第一个保留（board.d 生成的），第二个及以后删
-#      ③ name=其他非空 → 不认识的 device，一律删（旁路由不需要额外绑定）
-#      ④ 没有 name 字段 → 空壳 section，一律删
-_seen_brlan=''
-_idx=0
-while uci -q show "network.@device[$_idx]" > /dev/null 2>&1; do
-  _name=$(uci -q get "network.@device[$_idx].name" 2>/dev/null)
-  _drop=0
-  if [ -z "$_name" ]; then
-    # ④ 没有 name 的空壳匿名 section：直接删
-    _drop=1
-  else
-    case "$_name" in
-      lan1|lan2|lan3)
-        # ① 物理口：一律删除（不保留任何 UCI device 绑定）
-        _drop=1
-        ;;
-      br-lan)
-        # ② 网桥：第一个保留，第二个及以后删
-        if [ -n "$_seen_brlan" ]; then
-          _drop=1
-        else
-          _seen_brlan=1
-        fi
-        ;;
-      *)
-        # ③ name=其他：一律删，旁路由不需要额外 device 绑定
-        _drop=1
-        ;;
-    esac
-  fi
-  if [ "$_drop" -eq 1 ]; then
-    uci -q delete "network.@device[$_idx]" 2>/dev/null || true
-    # 删完索引不递增：下一个 section 会"掉"到当前索引位置，
-    # 必须重新处理当前索引，否则中间会漏删。
-    continue
-  fi
-  _idx=$((_idx + 1))
+# ---------- 2.1 ~ 2.2 device section：暴力清空 + 原子重建（绝对只有1个） ----------
+# 背景（backup-v4 / v4.1 实测的坑）：
+#   不管怎么写"遍历索引 + 按 name 分类删"，真实设备首次启动后
+#   `uci show network | grep -c @device` 仍会稳定地 = 5（1 个 br-lan + 4 个
+#   "没有 name 字段的空壳匿名 device section"）。经过两轮排查确认：
+#     ① 用 `uci -q show @device[N]` 当 while 条件在某些 uci/libuci 版本
+#        上对"完全空、连 type 字段都没有"的匿名 section exit code 不可靠；
+#     ② board.d / 02_network / netifd 自身在首次启动某个时序里可能额外
+#        调用 `uci add network device` 但忘了 `uci set .name`，留下裸空壳。
+#   既然"删不干净"，干脆"扫光重建"——只要我们 100% 控制最终有几个匿名
+#   device section，就永远不会有 LuCI 设备页多显示的问题。
+#
+# 新策略（backup-v4.2 及以后，推荐，永远生效）：
+#   Step A：删干净所有命名 device section（lan1/2/3 + br_lan 这种显式名）
+#   Step B：无限删 `network.@device[0]`，只要索引 0 上还有匿名 section 就
+#           一直删，最终 UCI 里一个匿名 device 都不剩。
+#           → 这一步是本策略的关键：**根本不需要判断每个 section 里有啥，
+#             统一从 0 号下标反复删**，不会漏任何"空壳/畸形/只含 type 没 name"
+#             的历史遗留。
+#   Step C：`uci add network device` 明确**新建 1 个**匿名 device section
+#           （它必然是新的 @device[0]）。
+#   Step D：给这个新 section 一次性写齐 4 个字段：
+#              type=bridge  （必须，不然 netifd 不认为它是网桥）
+#              name=br-lan   （必须，和逻辑接口 network.lan.device 对应）
+#              macaddr=$BR_LAN_MAC  （网桥 MAC 必须 UCI 指定，驱动不从 DTS 读）
+#              ports 列表 = lan1 lan2 lan3   （add_list，避免重复）
+#
+# 结果：/etc/config/network 里永远只有 1 个匿名 @device[0]，
+#       内容就是我们刚写的 br-lan 网桥，其他全没。
+#       `uci show network | grep -c @device` 必然等于 1。
+
+# Step A：命名 device section 清理
+uci delete network.lan1 2>/dev/null || true
+uci delete network.lan2 2>/dev/null || true
+uci delete network.lan3 2>/dev/null || true
+uci delete network.br_lan 2>/dev/null || true
+
+# Step B：暴力清空所有匿名 device section（从 0 号反复删，直到索引 0 不存在）
+# 关键：不判断内容、不递增索引、不需要每个 section 有 name/type 字段。
+# 每删一次后面的 section 自动前移到 0 号位置，所以永远只要删 0 号。
+while uci -q show "network.@device[0]" > /dev/null 2>&1; do
+  uci -q delete "network.@device[0]" 2>/dev/null || true
 done
 
-# ---------- 2.2 只为 br-lan 网桥写 UCI：macaddr + 确认 ports ----------
-# 绝对不新建第二个名为 br-lan 的 device section，
-# 否则 LuCI「网络-接口-设备」页面会显示两个 br-lan（之前踩过的坑）。
-# 注意：macaddr 赋值只用外层双引号，不要再加内层单引号——
-#       之前写过 uci set "...macaddr='$BR_LAN_MAC'"，shell 把内层 ' 当成
-#       普通字符保留，UCI 实际存进去的值带一对多余的单引号（LuCI 页面
-#       显示为 "'xx:xx:xx'"），会导致 netifd / bridge 驱动拿到的是带引号
-#       的非法 MAC 字符串，网桥 MAC 实际不会生效，网卡可能继续用 permaddr。
-_idx=0
-while uci -q show "network.@device[$_idx]" > /dev/null 2>&1; do
-  if [ "$(uci -q get "network.@device[$_idx].name" 2>/dev/null)" = "br-lan" ]; then
-    uci set "network.@device[$_idx].macaddr=$BR_LAN_MAC"
-    # 保险起见：确认 ports 里包含 lan1/lan2/lan3；没有就补上
-    _ports=$(uci -q get "network.@device[$_idx].ports" 2>/dev/null)
-    if [ -z "$_ports" ]; then
-      for _p in lan1 lan2 lan3; do
-        uci -q del_list "network.@device[$_idx].ports=$_p" 2>/dev/null
-        uci add_list "network.@device[$_idx].ports=$_p" 2>/dev/null || true
-      done
-    fi
-    break
-  fi
-  _idx=$((_idx + 1))
+# Step C：明确新建 1 个匿名 device section（必然是 @device[0]）
+uci add network device > /dev/null
+
+# Step D：为 @device[0] 写齐网桥 4 个字段
+uci set "network.@device[0].type=bridge"
+uci set "network.@device[0].name=br-lan"
+# ⚠ MAC 只用一层双引号，不要再嵌套单引号（子坑 9-b 教训）：
+#     错误写法 uci set "...macaddr='$BR_LAN_MAC'" → 存进去带 ' 引号 → bridge 不认
+#     正确写法 uci set "...macaddr=$BR_LAN_MAC"  → 纯 MAC 字符串 → 生效
+uci set "network.@device[0].macaddr=$BR_LAN_MAC"
+# ports：先清后加，用 add_list，保证 lan1/2/lan3 都在、且不重复
+for _p in lan1 lan2 lan3; do
+  uci -q del_list "network.@device[0].ports=$_p" 2>/dev/null
+  uci add_list "network.@device[0].ports=$_p" 2>/dev/null || true
 done
 
 # 确保 network.lan（逻辑接口）绑定的 device 就是 br-lan（保险写一遍）
