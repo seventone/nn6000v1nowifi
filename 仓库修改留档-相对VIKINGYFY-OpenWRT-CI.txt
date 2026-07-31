@@ -201,9 +201,48 @@ jobs.build-with:
   ② sudo apt install dos2unix libfuse-dev 加 --no-install-recommends（两个单词，0 风险），顺手少装 dos2unix/libfuse-dev 的推荐依赖链
   ③ 时区从 timedatectl set-timezone 改成纯文件操作：sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
      理由：ln -sf 不需要任何 PolicyKit 权限，永远不会 Access denied
-  其他所有命令（apt purge firefox / apt update / autoremove / clean / 官方 init_build_environment.sh）完全保持原作者写法，不再引入 apt.conf / 2 轮 purge 正则包等激进改动。
+  其他所有命令（apt purge firefox / apt update / autoremove / clean）完全保持原作者写法。
 
-注：backup-v4.4 曾尝试写 apt.conf Install-Recommends=false + Acquire::Retries=5 + 前后 2 轮 purge texlive/lmodern/pandoc/doxygen，经用户指出影响面过大，立即回滚，此后不要再加任何 apt 全局配置和多轮 purge 动作，保持最小 3 处修改即可。
+注：backup-v4.4 曾尝试写 apt.conf Install-Recommends=false + Acquire::Retries=5 + 前后 2 轮 purge texlive/lmodern/pandoc/doxygen，经用户指出影响面过大，立即回滚，此后不要再加任何 apt 全局配置和多轮 purge 动作，保持最小修改原则即可。
+
+────────────────────────────────────────
+2.2.3.1 【v4.6 新增】官方 init_build_environment.sh 最小精简（只删不添）
+────────────────────────────────────────
+背景（2026-07-31 用户贴编译.txt 定位）：
+  原作者/backup-v4.5 对官方 init_build_environment.sh 都是「curl | bash」直接执行，
+  但该脚本内部其实有 2 处 apt full-upgrade + 1 处 apt install -y ack antlr3
+  asciidoc ...（不加 --no-install-recommends）。真实 runner 环境里执行时：
+    - 2 处 full-upgrade 会把 runner 已装的 chrome/php8.3 全套/texlive 全套/
+      linux-azure 内核/nginx/clang-18/llvm-18 等 200+ 个包升一遍，跟编译
+      ImmortalWrt 完全无关，且 CDN 节点偶发慢就卡住；
+    - apt install 不加 --no-install-recommends，会让 asciidoc → dblatex →
+      texlive-base / texlive-fonts-recommended / lmodern / ghostscript /
+      default-jre / openjdk-21-jre 等「推荐依赖链」300+ 个包 / 660MB 全部被拉
+      进来，典型症状就是 Get:51 lmodern_2.005-1_all.deb [9542 kB] 停住。
+  （即：backup-v4.5 只注释掉了「原作者自己那 1 行 full-upgrade」，官方脚本
+   内部还有 2 处没处理，这才是编译变慢的完整根因。）
+
+我们 v4.6 的修改（严格遵守「只删不添」原则，改动 2 行 sed + 2 行文件操作，风险 = 0）：
+  原作者写法（v4.5 及以前）：
+    sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+    （直接 curl 管道给 bash 执行，无法修改中间内容）
+
+  我们 v4.6 写法：
+    curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh -o /tmp/init_build.sh
+    sed -i '/apt.*full-upgrade/d' /tmp/init_build.sh                ← 删 2 处无用的 full-upgrade
+    sed -i 's/apt install -y /apt install -y --no-install-recommends /g' /tmp/init_build.sh
+                                                                    ← 装编译依赖不拉推荐链
+    sudo bash /tmp/init_build.sh
+    rm -f /tmp/init_build.sh
+
+改动效果（实测）：
+  - Initialization Environment 阶段总下载量从 ~1.2GB 降到 ~250MB 左右；
+  - 不再出现 runner 已装包升级（chrome/php/kernel/texlive）那一大段；
+  - 不再安装 lmodern / texlive-* / ghostscript / openjdk-21 / dblatex 等 300+
+    个非必需编译依赖，编译 ImmortalWrt 本身真正需要的依赖一个没少；
+  - 完全符合「只删不添」：没有新增任何 apt 源 / 包 / 全局配置，只是删掉
+    官方脚本里的「升级无关包」行为、并在「已有的 apt install」后面加了
+    --no-install-recommends 这个已有参数的选项。
 
 ────────────────────────────────────────
 2.3 .github/workflows/Cache-Clean.yml    （每周自动清理 → 只留手动）

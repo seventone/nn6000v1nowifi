@@ -75,14 +75,28 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          # NN6000 V1 旁路由专属最小修改（backup-v4.5，相对原作者只改 3 点）
-          #   ① 删除 apt full-upgrade（原作者 L80 会触发 runner 已装的 texlive/lmodern/
-          #     asciidoc 等无用包下载新版本 deb，CDN 偶发慢就会卡，是 run #13 在
-          #     Get:51 lmodern_2.005-1_all.deb 停住的直接根因）
-          #   ② apt install dos2unix/libfuse-dev 加 --no-install-recommends（加两个
-          #     单词，完全无害，顺手少装推荐依赖链）
-          #   ③ 时区从 timedatectl 改 ln -sf：GitHub runner 偶尔 PolicyKit 没就绪
-          #     timedatectl 会报 Access denied，纯文件操作永远不会受 PolicyKit 影响
+          # NN6000 V1 旁路由专属最小修改（backup-v4.6，相对原作者只删不添）
+          #
+          # 改动分两组：
+          #   第一组（原作者 WRT-CORE.yml 自己的 6 行命令，backup-v4.5 已改）：
+          #     ① 删 apt full-upgrade（原作者 L80 会升级 runner 已装的 chrome/php/
+          #       texlive/kernel 等无用包，跟编译完全无关）
+          #     ② apt install dos2unix/libfuse-dev 加 --no-install-recommends
+          #       （顺手少装推荐依赖链，完全无害）
+          #     ③ 时区从 timedatectl 改 ln -sf（纯文件操作，避开 GitHub runner
+          #       偶尔 PolicyKit 没就绪导致的 Access denied）
+          #
+          #   第二组（v4.6 新增：ImmortalWrt 官方 init_build_environment.sh 的最小
+          #     精简。完全符合"只删不添"原则——原作者直接 curl|bash 执行远程脚本，
+          #     我们只是先下载到本地，用 sed 删掉脚本里的无用行，再执行修改后的
+          #     本地脚本。没有添加任何新命令或新依赖。）：
+          #     ④ 删官方脚本里所有 apt full-upgrade 行（官方脚本内部有 2 处
+          #       full-upgrade，会把 runner 已装的 clang/llvm/php/chrome/texlive
+          #       都升一遍，CDN 慢就卡死在 lmodern 这种 10MB 级大包上）
+          #     ⑤ 官方脚本里 apt install -y 替换成 apt install -y
+          #       --no-install-recommends（装编译依赖时不拉推荐链，直接砍掉
+          #       asciidoc → dblatex → texlive 全套 300+ MB 无用包）
+          #
           sudo -E apt -yqq purge firefox
           sudo -E apt -yqq update
           # sudo -E apt -yqq full-upgrade   ← 原作者这一行已删除（原因见①）
@@ -90,7 +104,14 @@ jobs:
           sudo -E apt -yqq autoclean
           sudo -E apt -yqq clean
           sudo -E apt -yqq install --no-install-recommends dos2unix libfuse-dev
-          sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+
+          # —— 官方 init 脚本最小精简（只删不添，见改动④⑤）——
+          curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh -o /tmp/init_build.sh
+          sed -i '/apt.*full-upgrade/d' /tmp/init_build.sh
+          sed -i 's/apt install -y /apt install -y --no-install-recommends /g' /tmp/init_build.sh
+          sudo bash /tmp/init_build.sh
+          rm -f /tmp/init_build.sh
+
           sudo -E systemctl daemon-reload
           # 时区：ln -sf 纯文件操作（原作者 timedatectl 改法撞 PolicyKit denied 的兜底）
           sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
