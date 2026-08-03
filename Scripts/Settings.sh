@@ -101,6 +101,26 @@ if [[ "${WRT_TARGET^^}" == *"QUALCOMMAX"* ]]; then
 fi
 
 # ========================================================================
+# 1.5 注入 rtp2httpd 官方 feed（从 stackia/rtp2httpd 主仓库拉取最新版）
+#    目的：ImmortalWrt 官方源里的 rtp2httpd 版本可能滞后，
+#          直接用主仓库保证是最新版（与一键安装脚本同源）
+#    优先级：先注入官方 feed，再 feeds update/install，
+#            后注册的 feed 同名包会覆盖 ImmortalWrt 内置版本
+# ========================================================================
+# 判断是否已添加过（避免 CI 重跑时重复追加）
+if ! grep -q "src-git-full rtp2httpd " ./feeds.conf.default 2>/dev/null; then
+	# 用 src-git-full 拉取完整历史（rtp2httpd 仓库很小，完整 clone 也很快）
+	# 放在 feeds.conf.default 末尾，同名包优先级最高
+	echo "src-git-full rtp2httpd https://github.com/stackia/rtp2httpd.git" >> ./feeds.conf.default
+	echo "rtp2httpd 官方 feed 已注入 feeds.conf.default"
+fi
+# 优先更新 rtp2httpd feed（其他 feed 如果已在前面的步骤更新过也没关系）
+./scripts/feeds update rtp2httpd 2>/dev/null
+# 强制安装 rtp2httpd 包（-f 若有同名旧包则覆盖为官方 feed 版本）
+./scripts/feeds install -f -p rtp2httpd rtp2httpd 2>/dev/null
+echo "rtp2httpd 已从官方 feed 安装（版本以主仓库为准）"
+
+# ========================================================================
 # 2. NN6000 V1 网口重定义（patch ImmortalWrt 源码）
 #    目标：lan1+lan2 桥接 br-lan，lan3 独立为 IPTV 口
 #    label 映射：原 WAN 口 -> lan1，原 LAN1 口 -> lan2，原 LAN2 口 -> lan3
