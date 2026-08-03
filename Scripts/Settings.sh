@@ -524,6 +524,30 @@ for _dev in dummy0 erspan0 gre0 gretap0 ip6gre0 ip6tnl0 sit0; do
   fi
 done
 
+# ---------- 10. 隐藏 NSS 副作用接口（LuCI 设备页面显示过滤） ----------
+# 背景：NSS 硬件加速驱动链（qca_nss_gre → ip_gre）加载时会自动创建
+#   erspan0/gre0/gretap0/ip6gre0/ip6tnl0/sit0 等模板接口，bonding 模块
+#   会创建 bonding_masters 控制接口。这些接口 state DOWN、零流量、无影响，
+#   但 erspan0 和 bonding_masters 会出现在 LuCI "网络-接口-设备" 页面。
+#
+# LuCI 的 network.js 中有内置的 iface_patterns_ignore 过滤数组，已经过滤了
+#   sit\d+/gre\d+/gretap\d+/ip6gre\d+/ip6tnl\d+（通过正则模式匹配），
+#   但缺少 erspan 和 bonding_masters 的过滤模式。
+#
+# 这里通过 sed 在数组开头追加这两个模式，让 LuCI 不再显示它们。
+# 注意：只改 LuCI 显示层，不影响 NSS 驱动和接口本身（接口仍在系统中正常工作）。
+# 用 [0-9] 替代 \d 避免反斜杠转义问题（busybox sed 不处理 \d 转义）。
+LUCI_NETWORK_JS="/www/luci-static/resources/network.js"
+if [ -f "$LUCI_NETWORK_JS" ]; then
+	# 幂等检查：如果文件中没有 erspan 过滤模式才 patch
+	if ! grep -q 'erspan' "$LUCI_NETWORK_JS" 2>/dev/null; then
+		sed -i 's|const iface_patterns_ignore=\[|const iface_patterns_ignore=[/^erspan[0-9]+/,/^bonding_masters$/,|' "$LUCI_NETWORK_JS" 2>/dev/null
+		# 清理 LuCI 缓存让 patch 立即生效
+		rm -rf /tmp/luci-* 2>/dev/null
+		echo "LuCI network.js patched: erspan0/bonding_masters 已从设备列表过滤"
+	fi
+fi
+
 exit 0
 UCI_EOF
 chmod +x "$UCI_DEFAULTS_DIR/99-nn6000v1nowifi"

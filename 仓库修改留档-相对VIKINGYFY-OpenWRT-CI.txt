@@ -964,3 +964,67 @@ v5.2 变更记录（2026-08-03）
     - rtp2httpd 自动安装并开机自启（5100 端口）
     - 防火墙自动配置 iptv zone + forwarding
   如需恢复 v5.0 全桥接模式，刷回 v5.0 固件即可。
+
+================================================================================
+v5.2 修复记录（2026-08-03，同日修复）
+================================================================================
+
+修复 1：IPTV 接口创建语法错误（致命 bug）
+  原代码：uci set network.iptv.interface='iptv'  （错误：设置了一个无效选项）
+  修复后：uci set network.iptv=interface         （正确：创建 interface section）
+  影响：原 bug 导致 IPTV 接口完全无法创建，lan3 不会获取 DHCP IP，
+        rtp2httpd 无法工作。修复后所有选项正确写入。
+
+修复 2：rtp2httpd feed 来源改为官方主仓库
+  原方案：依赖 ImmortalWrt 内置源（版本可能滞后）
+  修复后：从 stackia/rtp2httpd 主仓库拉取最新版（与一键安装脚本同源）
+  实现：Settings.sh 1.5 节注入 src-git-full rtp2httpd feed，
+        feeds install -f -p rtp2httpd 强制使用官方 feed 版本
+
+================================================================================
+v5.3 变更记录（2026-08-03）
+================================================================================
+
+主题：隐藏 NSS 硬件加速副作用接口（LuCI 设备页面显示过滤）
+
+背景：
+  NN6000 V1 的 IPQ6018 平台使用 NSS 硬件加速，NSS 驱动链会自动创建
+ 多个模板/控制接口（state DOWN、零流量、无影响），其中 erspan0 和
+ bonding_masters 会出现在 LuCI "网络-接口-设备" 页面，影响美观。
+
+  完整的 NSS 副作用接口清单（7 个）：
+    erspan0          ← ip_gre 模块自动创建（qca_nss_gre 依赖）
+    gre0             ← gre 模块自动创建（已被 LuCI 内置过滤）
+    gretap0          ← ip_gre 模块自动创建（已被 LuCI 内置过滤）
+    ip6gre0          ← ip6_gre 模块自动创建（已被 LuCI 内置过滤）
+    ip6tnl0          ← ip6_tunnel 模块自动创建（已被 LuCI 内置过滤）
+    sit0             ← sit 模块自动创建（已被 LuCI 内置过滤）
+    bonding_masters  ← bonding 模块自动创建（5 个 NSS 模块依赖，未被过滤）
+
+  LuCI 的 network.js 中有内置的 iface_patterns_ignore 过滤数组，
+  已经过滤了 sit\d+/gre\d+/gretap\d+/ip6gre\d+/ip6tnl\d+ 模式，
+  但缺少 erspan 和 bonding_masters 的过滤模式。
+
+变更文件：
+  Scripts/Settings.sh
+    新增第 10 节：隐藏 NSS 副作用接口（LuCI 设备页面显示过滤）
+    - 在 uci-defaults 脚本中，首次启动时 patch /www/luci-static/resources/network.js
+    - 在 iface_patterns_ignore 数组开头追加两个正则模式：
+        /^erspan[0-9]+/       → 匹配 erspan0, erspan1 等
+        /^bonding_masters$/   → 匹配 bonding_masters
+    - 幂等设计：grep 检查是否已 patch，避免重复执行
+    - patch 后清理 LuCI 缓存（rm -rf /tmp/luci-*）让修改立即生效
+    - 用 [0-9] 替代 \d 避免反斜杠转义问题（busybox sed 不处理 \d 转义）
+
+实现原理：
+  LuCI network.js 的 getDevices() 函数通过 isIgnoredIfname() 过滤设备，
+  isIgnoredIfname() 遍历 iface_patterns_ignore 数组中的正则模式，
+  匹配到的接口名会被忽略，不会出现在 LuCI 的任何设备列表中。
+  这个 patch 只改 LuCI 显示层，不影响 NSS 驱动和接口本身。
+
+影响范围：
+  - 只影响 LuCI 界面显示（网络-接口-设备页面不再显示 erspan0/bonding_masters）
+  - 不影响 NSS 硬件加速功能
+  - 不影响系统中的接口本身（ip addr 仍可看到这些接口）
+  - 刷写 v5.3 固件后首次启动自动生效
+  - 已运行 v5.2 的设备需重新刷固件，或手动执行 sed patch
