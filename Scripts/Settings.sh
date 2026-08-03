@@ -1,14 +1,15 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 VIKINGYFY
-# 旁路由专用版：NN6000 V1 无WiFi版
+# 旁路由专用版：NN6000 V1 无WiFi版 + IPTV
 # 目标：
-#   - 仅单臂旁路由模式（所有物理口均为 LAN，桥接 br-lan）
+#   - 旁路由模式：lan1+lan2 桥接 br-lan，lan3 独立为 IPTV 口
+#   - lan3 通过 DHCP 获取 IPTV 专网 IP，运行 rtp2httpd 提供组播转 HTTP 服务
 #   - 静态 IP：10.0.0.30/24，网关 10.0.0.100，DNS 10.0.0.5 + 223.5.5.5
 #   - 关闭 DHCP（主路由提供 DHCP）
 #   - 删除 WAN/WAN6 接口 + 防火墙 WAN zone
 #   - IPv6 编译进固件但默认关闭
-#   - 物理网口重新编号：原WAN→lan1，原LAN1→lan2，原LAN2→lan3，全部桥接
+#   - 物理网口重新编号：原WAN→lan1，原LAN1→lan2，原LAN2→lan3
 #   - 默认主题 Argon，默认主机名 NN6000
 
 # ===== 旁路由网络参数（按需修改） =====
@@ -100,32 +101,37 @@ if [[ "${WRT_TARGET^^}" == *"QUALCOMMAX"* ]]; then
 fi
 
 # ========================================================================
+# 1.5 注入 rtp2httpd feed（如果 ImmortalWrt 官方源未包含则手动添加）
+# ========================================================================
+if ! grep -q "rtp2httpd" ./feeds.conf.default 2>/dev/null; then
+	echo "src-git rtp2httpd https://github.com/stackia/rtp2httpd.git" >> ./feeds.conf.default
+	./scripts/feeds update rtp2httpd 2>/dev/null
+	./scripts/feeds install rtp2httpd 2>/dev/null
+	echo "rtp2httpd feed injected and installed."
+fi
+
+# ========================================================================
 # 2. NN6000 V1 网口重定义（patch ImmortalWrt 源码）
-#    目标：所有口均为 LAN，桥接 br-lan
+#    目标：lan1+lan2 桥接 br-lan，lan3 独立为 IPTV 口
 #    label 映射：原 WAN 口 -> lan1，原 LAN1 口 -> lan2，原 LAN2 口 -> lan3
 # ========================================================================
 
 BOARD_D_NET="./target/linux/qualcommax/ipq60xx/base-files/etc/board.d/02_network"
 if [ -f "$BOARD_D_NET" ] && grep -q "link,nn6000-v1" "$BOARD_D_NET"; then
 	#
-	# 在 board.d/02_network 中，设备 link,nn6000-v1 的 case 分支原文：
+	# board.d/02_network 中 link,nn6000-v1 的 case 分支原文：
 	#   link,nn6000-v1)
 	#       ucidef_set_interfaces_lan_wan "lan1 lan2" "wan"
 	#       ;;
-	# 我们在这个独立的 case 范围内，把包含 ucidef_set_interfaces_lan_wan 的整行
-	# 直接替换为 3 个口全部 LAN + 无 WAN，这样 netifd 启动时会把 lan1/lan2/lan3
-	# 全部自动桥接到 br-lan。
-	#
-	# 范围用 /link,nn6000-v1)/,/;;/ 精确锁到 nn6000 这一个设备分支，
-	# 不会误伤 dptech,ap3000-2c / 8devices,mango-dvk / glinet,gl-axt1800
-	# 等其它和 nn6000 共用同一条配置的设备（之前方案1就是因为没加范围，
-	# 全局替换导致编译异常）。
+	# 改为：lan1+lan2 桥接（旁路由主口），lan3 留空（由 uci-defaults 配为 IPTV 口）
+	# 无 WAN 接口（旁路由模式不需要 WAN）
+	# uci-defaults 会在首次启动时覆盖 network config，创建 br-lan(lan1+lan2) + iptv(lan3)
 	#
 	sed -i '/link,nn6000-v1)/,/;;/ {
-		s/.*ucidef_set_interfaces_lan_wan.*/\tucidef_set_interfaces_lan_wan "lan1 lan2 lan3" ""/
+		s/.*ucidef_set_interfaces_lan_wan.*/\tucidef_set_interfaces_lan_wan "lan1 lan2" ""/
 	}' "$BOARD_D_NET" 2>/dev/null
 
-	echo "NN6000 V1: board.d/02_network patched: no WAN, all 3 ports to LAN group."
+	echo "NN6000 V1: board.d/02_network patched: no WAN, lan1+lan2 to LAN bridge, lan3 reserved for IPTV."
 fi
 
 #
@@ -217,12 +223,14 @@ ${_pad}local-mac-address = [$_bytes];" "$NN6000_DTS"
 fi
 
 # ========================================================================
-# 3. 创建旁路由专用 uci-defaults 脚本（首次启动自动执行）
+# 3. 创建旁路由 + IPTV 专用 uci-defaults 脚本（首次启动自动执行）
+#    - lan1+lan2 桥接 br-lan，lan3 独立为 IPTV 口（DHCP 获取 IPTV 专网 IP）
 #    - 静态 IP / 网关 / DNS
 #    - 删除 WAN/WAN6 接口
 #    - DHCP 关闭
 #    - IPv6 默认关闭
-#    - 防火墙删除 WAN zone
+#    - 防火墙：LAN zone + IPTV zone + 双向 forwarding
+#    - rtp2httpd：配置 + 开机自启
 # ========================================================================
 
 UCI_DEFAULTS_DIR="./package/base-files/files/etc/uci-defaults"
@@ -230,8 +238,11 @@ mkdir -p "$UCI_DEFAULTS_DIR"
 
 cat > "$UCI_DEFAULTS_DIR/99-nn6000v1nowifi" <<'UCI_EOF'
 #!/bin/sh
-# NN6000 V1 无WiFi版 —— 旁路由专用默认配置
+# NN6000 V1 无WiFi版 + IPTV —— 旁路由专用默认配置
 # 首次启动自动执行，仅运行一次
+# 架构：lan1+lan2 桥接 br-lan（旁路由主口）
+#       lan3 独立为 IPTV 口（DHCP 获取 IPTV 专网 IP）
+#       rtp2httpd 运行在 lan3 上，提供组播转 HTTP 服务
 
 # ---------- 1. 删除 WAN / WAN6 接口，仅保留 LAN ----------
 uci delete network.wan 2>/dev/null
@@ -290,16 +301,18 @@ BR_LAN_MAC=$LAN1_MAC
 #              type=bridge  （必须，不然 netifd 不认为它是网桥）
 #              name=br-lan   （必须，和逻辑接口 network.lan.device 对应）
 #              macaddr=$BR_LAN_MAC  （网桥 MAC 必须 UCI 指定，驱动不从 DTS 读）
-#              ports 列表 = lan1 lan2 lan3   （add_list，避免重复）
+#              ports 列表 = lan1 lan2   （add_list，避免重复；lan3 独立为 IPTV 口）
 #
-# 结果：/etc/config/network 里永远只有 1 个匿名 @device[0]，
-#       内容就是我们刚写的 br-lan 网桥，其他全没。
-#       `uci show network | grep -c @device` 必然等于 1。
+# 结果：/etc/config/network 里有 1 个匿名 @device[0]（br-lan）+ 1 个命名 device（lan3dev）
+#       `uci show network | grep -c @device` = 1（匿名），`uci show network | grep lan3dev` = 1（命名）
 
 # Step A：命名 device section 清理
 uci delete network.lan1 2>/dev/null || true
 uci delete network.lan2 2>/dev/null || true
 uci delete network.lan3 2>/dev/null || true
+uci delete network.lan1dev 2>/dev/null || true
+uci delete network.lan2dev 2>/dev/null || true
+uci delete network.lan3dev 2>/dev/null || true
 uci delete network.br_lan 2>/dev/null || true
 
 # Step B：暴力清空所有匿名 device section（从 0 号反复删，直到索引 0 不存在）
@@ -319,11 +332,17 @@ uci set "network.@device[0].name=br-lan"
 #     错误写法 uci set "...macaddr='$BR_LAN_MAC'" → 存进去带 ' 引号 → bridge 不认
 #     正确写法 uci set "...macaddr=$BR_LAN_MAC"  → 纯 MAC 字符串 → 生效
 uci set "network.@device[0].macaddr=$BR_LAN_MAC"
-# ports：先清后加，用 add_list，保证 lan1/2/lan3 都在、且不重复
-for _p in lan1 lan2 lan3; do
+# ports：先清后加，用 add_list，lan3 独立为 IPTV 口，不加入 br-lan
+for _p in lan1 lan2; do
   uci -q del_list "network.@device[0].ports=$_p" 2>/dev/null
   uci add_list "network.@device[0].ports=$_p" 2>/dev/null || true
 done
+
+# 创建 lan3 独立 device section（IPTV 口，不加入 br-lan）
+# 设置 MAC 地址（DTS 已有但 UCI 再写一遍做双保险）
+uci set network.lan3dev=device
+uci set network.lan3dev.name='lan3'
+uci set network.lan3dev.macaddr="$LAN3_MAC"
 
 # 确保 network.lan（逻辑接口）绑定的 device 就是 br-lan（保险写一遍）
 uci set network.lan.device='br-lan'
@@ -361,6 +380,15 @@ uci set network.lan.delegate='0'
 uci delete network.lan.ip6assign 2>/dev/null
 uci delete network.lan.ip6hint 2>/dev/null
 
+# ---------- 2.5 IPTV 接口配置（lan3 独立口，DHCP 获取 IPTV 专网 IP） ----------
+# lan3 不再桥接 br-lan，作为独立 IPTV 口使用
+# 通过 DHCP 从运营商 IPTV 网络获取 IP（通常是 100.x.x.x/19 段）
+uci set network.iptv.interface='iptv'
+uci set network.iptv.proto='dhcp'
+uci set network.iptv.device='lan3'
+uci set network.iptv.hostname='*'
+uci set network.iptv.metric='20'
+
 # ---------- 3. 关闭 DHCP（旁路由模式由主路由提供 DHCP） ----------
 uci set dhcp.lan.ignore='1'
 uci set dhcp.lan.start='' 2>/dev/null
@@ -380,10 +408,10 @@ echo 1 > /proc/sys/net/ipv6/conf/default/disable_ipv6 2>/dev/null
 echo "net.ipv6.conf.all.disable_ipv6 = 1"  >> /etc/sysctl.conf 2>/dev/null
 echo "net.ipv6.conf.default.disable_ipv6 = 1" >> /etc/sysctl.conf 2>/dev/null
 
-# ---------- 5. 防火墙：删除 WAN zone 及相关 forwarding，仅保留 LAN ----------
+# ---------- 5. 防火墙：删除 WAN zone，重建 LAN + IPTV zone ----------
 # 删除所有 wan 相关 zone
 while uci -q delete firewall.@zone[0]; do :; done 2>/dev/null
-# 重新添加一个只有 LAN 的 zone（允许转发，允许 input/output）
+# 重建 lan zone（旁路由主区域，允许 input/output/forward）
 uci add firewall zone
 uci set firewall.@zone[-1].name='lan'
 uci set firewall.@zone[-1].network='lan'
@@ -392,11 +420,25 @@ uci set firewall.@zone[-1].output='ACCEPT'
 uci set firewall.@zone[-1].forward='ACCEPT'
 uci set firewall.@zone[-1].masq='0'
 uci set firewall.@zone[-1].mtu_fix='0'
-# forwarding 规则清零（旁路由不需要 WAN↔LAN 转发）
+# 重建 iptv zone（IPTV 口区域，masq + mtu_fix 保证组播正常）
+uci add firewall zone
+uci set firewall.@zone[-1].name='iptv'
+uci set firewall.@zone[-1].network='iptv'
+uci set firewall.@zone[-1].input='ACCEPT'
+uci set firewall.@zone[-1].output='ACCEPT'
+uci set firewall.@zone[-1].forward='ACCEPT'
+uci set firewall.@zone[-1].masq='1'
+uci set firewall.@zone[-1].mtu_fix='1'
+# forwarding 规则清零
 while uci -q delete firewall.@forwarding[0]; do :; done 2>/dev/null
-# 清理原作者残留的 wan 规则（Allow-DHCP-Renew / Allow-Ping / Allow-IGMP /
-# Allow-DHCPv6 / Allow-MLD / Allow-ICMPv6-* / Allow-IPSec-ESP / Allow-ISAKMP）
-# 旁路由无 wan 接口，这些 src='wan' 规则不会匹配流量但属于冗余，一并清除
+# IPTV ↔ LAN 双向转发（LAN 设备可访问 IPTV，反之亦然）
+uci add firewall forwarding
+uci set firewall.@forwarding[-1].src='iptv'
+uci set firewall.@forwarding[-1].dest='lan'
+uci add firewall forwarding
+uci set firewall.@forwarding[-1].src='lan'
+uci set firewall.@forwarding[-1].dest='iptv'
+# 清理原作者残留的 wan 规则
 while uci -q delete firewall.@rule[0]; do :; done 2>/dev/null
 
 # ---------- 6. 提交所有 uci 变更 ----------
@@ -410,6 +452,24 @@ nameserver PLACEHOLDER_LAN_DNS1
 nameserver PLACEHOLDER_LAN_DNS2
 RESOLV_EOF
 chmod 0644 /etc/resolv.conf 2>/dev/null
+
+# ---------- 7.5 清理 wan DHCP 配置（旁路由无 wan 接口） ----------
+uci delete dhcp.wan 2>/dev/null || true
+
+# ---------- 7.6 rtp2httpd IPTV 组播转 HTTP 服务配置 ----------
+# 配置 rtp2httpd：监听 5100 端口，从 lan3 接收组播流
+cat > /etc/config/rtp2httpd <<'RTP2H_EOF'
+config rtp2httpd
+	option disabled '0'
+	list listen '5100'
+	option external_m3u 'https://gh-proxy.com/https://raw.githubusercontent.com/seventone/multicast-zaozhuang.m3u/main/multicast-zaozhuang.m3u'
+	option advanced_interface_settings '1'
+	option upstream_interface_multicast 'lan3'
+	option upstream_interface_fcc 'lan3'
+	option upstream_interface_rtsp 'lan3'
+RTP2H_EOF
+# 启用 rtp2httpd 开机自启（init.d START=99，晚于本脚本执行）
+/etc/init.d/rtp2httpd enable 2>/dev/null || true
 
 # ---------- 8. 清理虚拟模板接口（双保险，彻底清 dummy0/erspan0/gre0/sit0 等） ----------
 # 说明：GENERAL.txt 里已经把 kmod-dummy/kmod-gre/kmod-erspan/kmod-gretap/
@@ -463,5 +523,6 @@ sed -i "s|PLACEHOLDER_LAN_GW|$LAN_GW|g"       "$UCI_DEFAULTS_DIR/99-nn6000v1nowi
 sed -i "s|PLACEHOLDER_LAN_DNS1|$LAN_DNS1|g"   "$UCI_DEFAULTS_DIR/99-nn6000v1nowifi"
 sed -i "s|PLACEHOLDER_LAN_DNS2|$LAN_DNS2|g"   "$UCI_DEFAULTS_DIR/99-nn6000v1nowifi"
 
-echo "NN6000 V1 旁路由 uci-defaults 已注入：IP=$LAN_IP GW=$LAN_GW DNS=$LAN_DNS1,$LAN_DNS2 DHCP=off IPv6=default-off"
-echo "所有物理口重映射到 br-lan，网口 label：WAN→lan1 / LAN1→lan2 / LAN2→lan3"
+echo "NN6000 V1 旁路由+IPTV uci-defaults 已注入：IP=$LAN_IP GW=$LAN_GW DNS=$LAN_DNS1,$LAN_DNS2 DHCP=off IPv6=default-off"
+echo "网口架构：lan1+lan2→br-lan（旁路由），lan3→iptv（DHCP，rtp2httpd 5100）"
+echo "网口 label：WAN→lan1 / LAN1→lan2 / LAN2→lan3"

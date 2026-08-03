@@ -15,7 +15,8 @@ NN6000 V1 无WiFi版 / 旁路由固件 仓库修改留档
 【修改总原则（严格遵守）】
   * 只删不加：能后期 opkg 装的一律不编进固件，只保留系统完整稳定+有线网络畅通
   * 不留 WiFi：所有无线驱动 / 固件 / 接口一律删除
-  * 旁路由模式：没有 WAN/WAN6，三网口全桥 LAN，DHCP 关，IPv6 默认关但保留模块
+  * 旁路由模式：没有 WAN/WAN6，lan1+lan2 全桥 LAN，DHCP 关，IPv6 默认关但保留模块
+  * IPTV 模式：lan3 独立为 IPTV 口（DHCP 获取 IPTV 专网 IP），运行 rtp2httpd
   * 网口重命名：原 WAN→lan1，原 LAN1→lan2，原 LAN2→lan3
   * 自定义 MAC 地址编译进固件（三物理口分别设、br-lan 网桥跟随 lan1）
   * 仅保留两种固件：factory.bin（首次刷机）+ squashfs-sysupgrade.bin（升级）
@@ -591,18 +592,26 @@ DTS patch 完成后，配合 2.6.3 board.d 的 LAN 组 "lan1 lan2 lan3"，
     /etc/sysctl.conf 两行 disable_ipv6
     （用户需要 IPv6 时，把 disable_ipv6 改成 0 就行）
 
-  2.6.5.6 防火墙：删除 WAN zone，仅保留 LAN zone
+  2.6.5.5b IPTV 接口配置（v5.2 新增）
+    lan3 独立为 IPTV 口，不加入 br-lan bridge
+    network.iptv.interface='iptv'
+    network.iptv.proto='dhcp' （从运营商 IPTV 专网自动获取 IP）
+    network.iptv.device='lan3'
+    network.iptv.metric='20' （低优先级路由，默认流量走 br-lan 主路由）
+    network.lan3dev=device 命名 device section（MAC 地址双保险）
+
+  2.6.5.5c rtp2httpd 配置和自启动（v5.2 新增）
+    CONFIG_PACKAGE_rtp2httpd=y 编译进固件
+    /etc/config/rtp2httpd：监听 5100，lan3 接收组播/RTSP/FCC
+    external_m3u：gh-proxy 代理的组播频道列表
+    /etc/init.d/rtp2httpd enable 开机自启
+
+  2.6.5.6 防火墙：删除 WAN zone，重建 LAN + IPTV zone
     while uci -q delete firewall.@zone[0] 循环清空所有 zone
-    add 一个新 zone：name=lan / network=lan / input=ACCEPT / output=ACCEPT /
-                    forward=ACCEPT / masq=0 / mtu_fix=0
-    forwarding 规则清空
-    （旁路由没有 WAN↔LAN 转发需求）
-    rule 规则清空（v5.1 新增）
-    while uci -q delete firewall.@rule[0] 循环清空原作者残留的 8 条
-    src='wan' 规则（Allow-DHCP-Renew / Allow-Ping / Allow-IGMP /
-    Allow-DHCPv6 / Allow-MLD / Allow-ICMPv6-Input / Allow-ICMPv6-Forward /
-    Allow-IPSec-ESP / Allow-ISAKMP），旁路由无 wan 接口，
-    这些规则不会匹配流量但属于冗余，一并清除
+    add lan zone：name=lan / network=lan / input/output/forward=ACCEPT / masq=0 / mtu_fix=0
+    add iptv zone：name=iptv / network=iptv / input/output/forward=ACCEPT / masq=1 / mtu_fix=1
+    forwarding 清空后重建：iptv→lan + lan→iptv（双向）
+    rule 规则清空（v5.1 新增）：清除原作者残留的 8 条 src='wan' 规则
 
   2.6.5.7 写死 /etc/resolv.conf，避免被别的脚本覆盖回默认 DNS
 
@@ -650,14 +659,15 @@ Heredoc 写完之后：
   - Handles.sh / Packages.sh 两个脚本删掉
   - 最终只剩 3 工作流 + 2 配置 + 1 Settings.sh
 
-[B] 旁路由化（核心定制）
-  - 没有 WAN/WAN6 接口，3 口全 LAN
+[B] 旁路由+IPTV化（核心定制）
+  - 没有 WAN/WAN6 接口，lan1+lan2 桥 br-lan，lan3 独立 IPTV 口
   - 网口 label：原 WAN→lan1、原 LAN1→lan2、原 LAN2→lan3
   - DTS label patch + board.d LAN 组 patch 双保险
   - 静态 IP 10.0.0.30 / 网关 10.0.0.100 / DNS 10.0.0.5 & 223.5.5.5
-  - DHCP 关 / IPv6 默认关 / 防火墙只有 LAN zone
+  - DHCP 关 / IPv6 默认关 / 防火墙 lan+iptv zone / IPTV↔LAN 双向 forwarding
   - 自定义 MAC：lan1/lan2/lan3 = 7a/7b/7c，br-lan = 7a
   - 清理所有虚拟口模板（dummy/gre/erspan/sit）
+  - rtp2httpd 编译进固件，lan3 口运行，监听 5100 端口
 
 [C] 编译加速
   - WRT-CORE 双缓存（ccache+dl 宽松复用 / toolchain 严格绑定源码）
@@ -896,3 +906,61 @@ v5.1 变更记录（2026-08-03）
 影响范围：
   仅影响首次启动时的 uci-defaults 脚本执行，对已运行的设备无影响
   （需要重新刷固件才能生效；或手动执行 uci delete firewall.@rule[0] 清理）。
+
+================================================================================
+v5.2 变更记录（2026-08-03）
+================================================================================
+
+主题：将 rtp2httpd + IPTV 网口分离配置 + 防火墙配置编译进固件
+
+变更文件：
+  1. Config/GENERAL.txt
+     + 新增 CONFIG_PACKAGE_rtp2httpd=y（rtp2httpd 核心包编译进固件）
+
+  2. Scripts/Settings.sh（多处修改）
+     a) 网口架构：br-lan 从 3 口桥接改为 2 口桥接（lan1+lan2）
+        - br-lan ports 从 "lan1 lan2 lan3" 改为 "lan1 lan2"
+        - lan3 独立为 IPTV 口，创建命名 device section（lan3dev）
+     b) 新增 IPTV 接口配置（2.5 节）
+        - network.iptv.interface='iptv'
+        - network.iptv.proto='dhcp'
+        - network.iptv.device='lan3'
+        - network.iptv.metric='20'
+     c) 防火墙新增 iptv zone + 双向 forwarding（5 节）
+        - iptv zone: input/output/forward=ACCEPT, masq=1, mtu_fix=1
+        - forwarding: iptv→lan + lan→iptv
+     d) 新增 rtp2httpd 配置和自启动（7.6 节）
+        - 写 /etc/config/rtp2httpd（监听 5100，lan3 接收组播流）
+        - /etc/init.d/rtp2httpd enable 开机自启
+     e) board.d patch 更新：从 3 口 LAN 改为 2 口 LAN（lan3 预留给 IPTV）
+     f) 清理步骤新增：uci delete network.lan1dev/lan2dev/lan3dev
+     g) 清理 wan DHCP：uci delete dhcp.wan
+
+设备运行架构：
+  ┌─────────────────────────────────────────────────────────┐
+  │ NN6000 V1 (旁路由 + IPTV)                                │
+  │                                                         │
+  │  lan1 ──┐                                               │
+  │  lan2 ──┼──→ br-lan (10.0.0.30/24) ──→ 主路由 ──→ 互联网│
+  │         │       DHCP: 关闭                              │
+  │         │       网关: 10.0.0.100                        │
+  │         │       DNS: 10.0.0.5, 223.5.5.5               │
+  │         │                                               │
+  │  lan3 ──→ iptv (DHCP) ──→ IPTV 专网 (100.x.x.x/19)      │
+  │         │       rtp2httpd 监听 5100                     │
+  │         │       防火墙 iptv zone: masq=1, mtu_fix=1    │
+  │         │       forwarding: iptv↔lan 双向               │
+  └─────────────────────────────────────────────────────────┘
+
+编译依赖：
+  rtp2httpd 已加入 ImmortalWrt 官方源，编译时自动拉取，无需额外 feed 配置。
+  核心包：rtp2httpd（包含二进制 / init.d / UCI 配置）
+  LuCI 前端：luci-app-rtp2httpd（仅 x86_64 可用，IPQ60xx aarch64 不需要）
+
+影响范围：
+  刷写 v5.2 固件后，首次启动时：
+    - br-lan 自动变为 lan1+lan2 桥接（lan3 不再桥接）
+    - lan3 自动变为 IPTV 独立口（DHCP）
+    - rtp2httpd 自动安装并开机自启（5100 端口）
+    - 防火墙自动配置 iptv zone + forwarding
+  如需恢复 v5.0 全桥接模式，刷回 v5.0 固件即可。
