@@ -101,16 +101,6 @@ if [[ "${WRT_TARGET^^}" == *"QUALCOMMAX"* ]]; then
 fi
 
 # ========================================================================
-# 1.5 注入 rtp2httpd feed（如果 ImmortalWrt 官方源未包含则手动添加）
-# ========================================================================
-if ! grep -q "rtp2httpd" ./feeds.conf.default 2>/dev/null; then
-	echo "src-git rtp2httpd https://github.com/stackia/rtp2httpd.git" >> ./feeds.conf.default
-	./scripts/feeds update rtp2httpd 2>/dev/null
-	./scripts/feeds install rtp2httpd 2>/dev/null
-	echo "rtp2httpd feed injected and installed."
-fi
-
-# ========================================================================
 # 2. NN6000 V1 网口重定义（patch ImmortalWrt 源码）
 #    目标：lan1+lan2 桥接 br-lan，lan3 独立为 IPTV 口
 #    label 映射：原 WAN 口 -> lan1，原 LAN1 口 -> lan2，原 LAN2 口 -> lan3
@@ -364,6 +354,7 @@ if [ -d /sys/class/net/br-lan ]; then
 fi
 
 # ---------- 3. LAN 静态 IP / 掩码 / 网关 / DNS ----------
+# （原 section 3，IPTV 接口配置在 3.5 节）
 LAN_IP="PLACEHOLDER_LAN_IP"
 LAN_MASK="PLACEHOLDER_LAN_MASK"
 LAN_GW="PLACEHOLDER_LAN_GW"
@@ -380,16 +371,17 @@ uci set network.lan.delegate='0'
 uci delete network.lan.ip6assign 2>/dev/null
 uci delete network.lan.ip6hint 2>/dev/null
 
-# ---------- 2.5 IPTV 接口配置（lan3 独立口，DHCP 获取 IPTV 专网 IP） ----------
+# ---------- 3.5 IPTV 接口配置（lan3 独立口，DHCP 获取 IPTV 专网 IP） ----------
 # lan3 不再桥接 br-lan，作为独立 IPTV 口使用
 # 通过 DHCP 从运营商 IPTV 网络获取 IP（通常是 100.x.x.x/19 段）
-uci set network.iptv.interface='iptv'
+# 注意：必须先 uci set network.iptv=interface 创建 section，再设置选项
+uci set network.iptv=interface
 uci set network.iptv.proto='dhcp'
 uci set network.iptv.device='lan3'
 uci set network.iptv.hostname='*'
 uci set network.iptv.metric='20'
 
-# ---------- 3. 关闭 DHCP（旁路由模式由主路由提供 DHCP） ----------
+# ---------- 4. 关闭 DHCP（旁路由模式由主路由提供 DHCP） ----------
 uci set dhcp.lan.ignore='1'
 uci set dhcp.lan.start='' 2>/dev/null
 uci set dhcp.lan.limit='' 2>/dev/null
@@ -401,14 +393,14 @@ uci set dhcp.lan.ra_flags='none'
 uci set dhcp.odhcpd.maindhcp='0' 2>/dev/null
 /etc/init.d/odhcpd disable 2>/dev/null
 
-# ---------- 4. IPv6 默认关闭（内核模块保留，用户需要时手动开启） ----------
+# ---------- 5. IPv6 默认关闭（内核模块保留，用户需要时手动开启） ----------
 uci set network.globals.ula_prefix='' 2>/dev/null
 echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null
 echo 1 > /proc/sys/net/ipv6/conf/default/disable_ipv6 2>/dev/null
 echo "net.ipv6.conf.all.disable_ipv6 = 1"  >> /etc/sysctl.conf 2>/dev/null
 echo "net.ipv6.conf.default.disable_ipv6 = 1" >> /etc/sysctl.conf 2>/dev/null
 
-# ---------- 5. 防火墙：删除 WAN zone，重建 LAN + IPTV zone ----------
+# ---------- 6. 防火墙：删除 WAN zone，重建 LAN + IPTV zone ----------
 # 删除所有 wan 相关 zone
 while uci -q delete firewall.@zone[0]; do :; done 2>/dev/null
 # 重建 lan zone（旁路由主区域，允许 input/output/forward）
@@ -441,22 +433,22 @@ uci set firewall.@forwarding[-1].dest='iptv'
 # 清理原作者残留的 wan 规则
 while uci -q delete firewall.@rule[0]; do :; done 2>/dev/null
 
-# ---------- 6. 提交所有 uci 变更 ----------
+# ---------- 7. 提交所有 uci 变更 ----------
 uci commit network
 uci commit dhcp
 uci commit firewall
 
-# ---------- 7. 写死 /etc/resolv.conf 避免被覆盖（旁路由模式下的 DNS） ----------
+# ---------- 8. 写死 /etc/resolv.conf 避免被覆盖（旁路由模式下的 DNS） ----------
 cat > /etc/resolv.conf <<RESOLV_EOF
 nameserver PLACEHOLDER_LAN_DNS1
 nameserver PLACEHOLDER_LAN_DNS2
 RESOLV_EOF
 chmod 0644 /etc/resolv.conf 2>/dev/null
 
-# ---------- 7.5 清理 wan DHCP 配置（旁路由无 wan 接口） ----------
+# ---------- 8.5 清理 wan DHCP 配置（旁路由无 wan 接口） ----------
 uci delete dhcp.wan 2>/dev/null || true
 
-# ---------- 7.6 rtp2httpd IPTV 组播转 HTTP 服务配置 ----------
+# ---------- 8.6 rtp2httpd IPTV 组播转 HTTP 服务配置 ----------
 # 配置 rtp2httpd：监听 5100 端口，从 lan3 接收组播流
 cat > /etc/config/rtp2httpd <<'RTP2H_EOF'
 config rtp2httpd
@@ -471,7 +463,7 @@ RTP2H_EOF
 # 启用 rtp2httpd 开机自启（init.d START=99，晚于本脚本执行）
 /etc/init.d/rtp2httpd enable 2>/dev/null || true
 
-# ---------- 8. 清理虚拟模板接口（双保险，彻底清 dummy0/erspan0/gre0/sit0 等） ----------
+# ---------- 9. 清理虚拟模板接口（双保险，彻底清 dummy0/erspan0/gre0/sit0 等） ----------
 # 说明：GENERAL.txt 里已经把 kmod-dummy/kmod-gre/kmod-erspan/kmod-gretap/
 # kmod-ip6-tunnel/kmod-sit 都设成了 =n，理论上这些模块不编进固件，
 # 开机就不会自动建模板接口。但有两种情况会导致清理第一轮不生效：
