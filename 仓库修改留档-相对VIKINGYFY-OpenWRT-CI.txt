@@ -597,6 +597,12 @@ DTS patch 完成后，配合 2.6.3 board.d 的 LAN 组 "lan1 lan2 lan3"，
                     forward=ACCEPT / masq=0 / mtu_fix=0
     forwarding 规则清空
     （旁路由没有 WAN↔LAN 转发需求）
+    rule 规则清空（v5.1 新增）
+    while uci -q delete firewall.@rule[0] 循环清空原作者残留的 8 条
+    src='wan' 规则（Allow-DHCP-Renew / Allow-Ping / Allow-IGMP /
+    Allow-DHCPv6 / Allow-MLD / Allow-ICMPv6-Input / Allow-ICMPv6-Forward /
+    Allow-IPSec-ESP / Allow-ISAKMP），旁路由无 wan 接口，
+    这些规则不会匹配流量但属于冗余，一并清除
 
   2.6.5.7 写死 /etc/resolv.conf，避免被别的脚本覆盖回默认 DNS
 
@@ -864,3 +870,29 @@ Heredoc 写完之后：
 
 ================================================================================
 （本文件结束）
+
+================================================================================
+v5.1 变更记录（2026-08-03）
+================================================================================
+变更文件：Scripts/Settings.sh
+变更位置：uci-defaults 防火墙清理段（约 L397-L400）
+
+变更内容：
+  在防火墙清理逻辑中新增一行清理 rule 的循环：
+    while uci -q delete firewall.@rule[0]; do :; done 2>/dev/null
+
+变更原因：
+  v5.0 的 uci-defaults 只清理了 firewall.@zone 和 firewall.@forwarding，
+  遗漏了 firewall.@rule。原作者 OpenWRT-CI 的防火墙默认配置中有 8 条
+  src='wan' 的规则（Allow-DHCP-Renew / Allow-Ping / Allow-IGMP /
+  Allow-DHCPv6 / Allow-MLD / Allow-ICMPv6-Input / Allow-ICMPv6-Forward /
+  Allow-IPSec-ESP / Allow-ISAKMP），旁路由没有 wan 接口，这些规则
+  不会匹配任何流量但属于冗余残留。
+
+  实测发现：SSH 登录设备执行 uci show firewall 可见 8 条 src='wan' 规则
+  仍然存在，nft ruleset 中也有对应的空规则链。虽然不影响系统稳定性和
+  网络功能，但不够干净。
+
+影响范围：
+  仅影响首次启动时的 uci-defaults 脚本执行，对已运行的设备无影响
+  （需要重新刷固件才能生效；或手动执行 uci delete firewall.@rule[0] 清理）。

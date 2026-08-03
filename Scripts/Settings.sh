@@ -394,6 +394,10 @@ uci set firewall.@zone[-1].masq='0'
 uci set firewall.@zone[-1].mtu_fix='0'
 # forwarding 规则清零（旁路由不需要 WAN↔LAN 转发）
 while uci -q delete firewall.@forwarding[0]; do :; done 2>/dev/null
+# 清理原作者残留的 wan 规则（Allow-DHCP-Renew / Allow-Ping / Allow-IGMP /
+# Allow-DHCPv6 / Allow-MLD / Allow-ICMPv6-* / Allow-IPSec-ESP / Allow-ISAKMP）
+# 旁路由无 wan 接口，这些 src='wan' 规则不会匹配流量但属于冗余，一并清除
+while uci -q delete firewall.@rule[0]; do :; done 2>/dev/null
 
 # ---------- 6. 提交所有 uci 变更 ----------
 uci commit network
