@@ -101,61 +101,95 @@ if [[ "${WRT_TARGET^^}" == *"QUALCOMMAX"* ]]; then
 fi
 
 # ========================================================================
-# 1.5 注入 rtp2httpd 官方 feed —— 每次编译都自动追官方最新 Release
+# 1.5 rtp2httpd 官方最新 Release 集成（package 自定义目录方式）
 #    目标：每次编译时，rtp2httpd 三件套 == 官方 GitHub Release 预编译的最新版
-#          （和一键安装脚本 install-openwrt.sh 下载到设备上的完全一致）
+#          （版本号 3.15.3-r1 格式，界面/菜单项和一键脚本安装的完全一致）
 #
-#    ⚠️ 关键1：彻底绕过 CI feeds 缓存
-#            WRT-CORE.yml 虽然只缓存 ccache 和 dl/，但 OpenWrt feeds
-#            本身有 stamp 文件机制，feeds update 可能跳过已更新过的 feed。
-#            所以进入本块后先删干净所有 rtp2httpd 相关残留（feeds 目录、
-#            package/feeds 软链、tmp 索引、stamp），强制每次 re-clone。
+#    ⚠️ 为什么用 package 自定义目录，而不是 feeds 注入？
+#       根据 https://github.com/stackia/rtp2httpd/issues/695 网友实测：
 #
-#    ⚠️ 关键2：自动查 GitHub API 获取最新 Release tag
-#            不在 Settings.sh 里写死 v3.15.3，而是每次编译前用
-#            `gh api repos/stackia/rtp2httpd/releases/latest` 拿
-#            最新 tag 名（去掉 v 前缀作为版本号传给 Makefile）。
-#            gh CLI 在 GitHub Actions 环境下天然可用（token 自动注入）。
-#            如果 gh 不可用则回退为 `git ls-remote --tags ...` 排序取最新 tag。
+#       1. 本仓库 WRT-CORE.yml 的执行顺序是「Update Feeds」→「Custom Settings」：
+#          L212-217：先 ./scripts/feeds update -a && feeds install -a
+#          L219-229：然后才执行 Settings.sh
+#          → Settings.sh 运行时 ImmortalWrt packages feed 的旧 luci-app-rtp2httpd
+#            （版本号 26.xxx.xxxxx~commit，luci.mk 日期格式）已经安装完毕，
+#            即便再 feeds install -f -p rtp2httpd 也可能被 tmp/.packageinfo
+#            已存在的索引覆盖，导致编译出的 luci-app 是 ImmortalWrt 旧版。
 #
-#    ⚠️ 关键3：feed 指向「最新 tag commit」+「openwrt-support 子目录」
-#            src-git-full 格式：<类型> <feed名> <URL> <tag/commit> <子目录>
-#            第三参数是 tag（不是 main 分支），保证 feed clone 的代码和
-#            GitHub Release 预编译包用的代码 100% 同 commit。
-#            第四参数 openwrt-support 让 feeds 扫描到三个包的 Makefile。
+#       2. OpenWrt 编译系统优先级：
+#          `package/<自定义目录>/` 下的包 > 任何 feeds/packages/* 同名包
+#          （参考 OpenWrt build 文档：local packages always win over feeds）
+#          所以把三个包放到 package/ 下自定义目录，编译系统一定选本地包，
+#          完全绕过 feeds 优先级机制，100% 不会被 ImmortalWrt 旧版覆盖。
 #
-#    ⚠️ 关键4：patch Makefile 里的 RELEASE_VERSION/PKG_VERSION
-#            官方 Makefile 里写的是 `git describe --tags --exact-match`，
-#            而 src-git-full clone 是 shallow 的（不是完整历史），
-#            feeds 系统下 Makefile 拿不到 tag 信息，会退化成日期版本号。
-#            所以把最新 tag 名（去掉 v 前缀）写死为 RELEASE_VERSION 和
-#            PKG_VERSION，让三个包的版本号、界面和 Release 预编译包完全一致。
+#       3. 使用官方提供的 Makefile.versioned（固件维护者集成指南推荐）：
+#          Makefile.versioned 里写死 PKG_VERSION/PKG_RELEASE，
+#          不依赖 git describe / luci.mk 自动生成版本号，
+#          保证和 GitHub Release 预编译包完全一致的版本号显示。
 #
-#    ⚠️ 关键5：rtp2httpd 必须安装三个包，缺一不可：
-#      1) rtp2httpd                  — 主程序
-#      2) luci-app-rtp2httpd        — LuCI 管理界面
-#      3) luci-i18n-rtp2httpd-zh-cn — 简体中文翻译
-#    参考：https://github.com/stackia/rtp2httpd/issues/695
+#    参考：
+#      - https://github.com/stackia/rtp2httpd/issues/695 （xzhhzx222 方案 B）
+#      - https://rtp2httpd.com/guide/installation#固件维护者集成指南
 # ========================================================================
-# ---------- A. 清理所有 rtp2httpd 缓存残留（强制每次 re-clone） ----------
-# 开放 WRT-CORE.yml 缓存的是 cc/dl，不包含 feeds/，但保险起见仍清一次：
+# ---------- A. 清理所有 rtp2httpd 同名旧包（防止优先级冲突）----------
+# ⚠️ 关键点：ImmortalWrt 可能把 luci-app-rtp2httpd / luci-i18n-rtp2httpd-zh-cn
+#    同时放在「packages feed」和「luci feed」两处（取决于发布快照版本）。
+#    只删固定路径会漏，所以用 find 模糊匹配，所有 package/feeds 下目录名含
+#    rtp2httpd 的一律删除（最大深度 2：package/feeds/<feed名>/<pkg名>/）。
+#    实测：当前路由器里 luci-app-rtp2httpd 和 i18n 仍显示 26.208.~a3bcfe5，
+#    就是因为上一轮清理没把 packages feed 里藏的另一处同名包删掉，导致
+#    同名 Package 冲突时 make 选中了 ImmortalWrt 自带的日期版。
+echo "[A1] find 模糊清理 package/feeds 下所有 *rtp2httpd* 目录..."
+if command -v find >/dev/null 2>&1; then
+	find ./package/feeds -maxdepth 2 -type d -iname '*rtp2httpd*' -print -exec rm -rf {} + 2>/dev/null
+	# 保险再跑一遍（find -exec 时目录树变化可能漏）
+	find ./package/feeds -maxdepth 2 -type d -iname '*rtp2httpd*' -print -exec rm -rf {} + 2>/dev/null
+else
+	# find 不可用时退化为显式路径（极端兜底）
+	rm -rf ./package/feeds/packages/rtp2httpd 2>/dev/null
+	rm -rf ./package/feeds/packages/luci-app-rtp2httpd 2>/dev/null
+	rm -rf ./package/feeds/packages/luci-i18n-rtp2httpd-zh-cn 2>/dev/null
+	rm -rf ./package/feeds/luci/rtp2httpd 2>/dev/null
+	rm -rf ./package/feeds/luci/luci-app-rtp2httpd 2>/dev/null
+	rm -rf ./package/feeds/luci/luci-i18n-rtp2httpd-zh-cn 2>/dev/null
+	rm -rf ./package/feeds/routing/rtp2httpd 2>/dev/null
+	rm -rf ./package/feeds/telephony/rtp2httpd 2>/dev/null
+fi
+# 2) 清 feeds/ 下可能残留的官方 feed 目录（之前版本 feed 注入留下的）
 rm -rf ./feeds/rtp2httpd 2>/dev/null
-# package/feeds/ 下的软链（feeds install 生成的）也要清：
 rm -rf ./package/feeds/rtp2httpd 2>/dev/null
-# tmp/ 下的 feeds 索引（让 `feeds install -p rtp2httpd` 能正确识别新 feed）：
-rm -f ./tmp/.packageinfo-rtp2httpd ./tmp/.targetinfo-rtp2httpd 2>/dev/null
-# feeds.conf.default 里所有旧版 rtp2httpd 配置（包括之前写死 main、写死 tag 的）全部清掉重写：
+# 2b) 再扫一遍 feeds/* 下藏的 rtp2httpd（有些发行版 feeds/luci/applications 直接存源）
+if command -v find >/dev/null 2>&1; then
+	find ./feeds -maxdepth 4 -type d -iname '*rtp2httpd*' -print -exec rm -rf {} + 2>/dev/null
+fi
+# 3) 清 tmp 索引缓存（强制让 make defconfig 重新扫包）
+rm -f ./tmp/.packageinfo ./tmp/.targetinfo ./tmp/.packageinfo-rtp2httpd 2>/dev/null
+rm -rf ./tmp/info 2>/dev/null
+# 4) 清 feeds.conf.default 里所有旧 rtp2httpd feed 行（之前版本写的 feed 注入）
 sed -i '\|src-git-full\? rtp2httpd |d' ./feeds.conf.default 2>/dev/null
 sed -i '\|src-git rtp2httpd |d' ./feeds.conf.default 2>/dev/null
-echo "rtp2httpd 缓存/旧 feed 配置已清理，将重新获取最新 Release"
+# 5) 清旧的自定义包目录（防止多个tag版本残留）
+rm -rf ./package/stackia-rtp2httpd ./package/rtp2httpd-official ./package/rtp2httpd 2>/dev/null
+# 5b) 再扫一遍 package/ 下非预期的 rtp2httpd 目录（排除我们将要创建的 rtp2httpd-official）
+if command -v find >/dev/null 2>&1; then
+	find ./package -maxdepth 2 -type d -iname '*rtp2httpd*' ! -name 'rtp2httpd-official' ! -path './package/stackia-rtp2httpd-src' -print -exec rm -rf {} + 2>/dev/null
+fi
+# 6) 打印清理结果，便于 CI 日志排查
+echo "清理后 package/feeds 下残留的 rtp2httpd 目录："
+if command -v find >/dev/null 2>&1; then
+	find ./package/feeds -maxdepth 2 -type d -iname '*rtp2httpd*' -print 2>/dev/null || echo "  (empty)"
+else
+	ls -d ./package/feeds/*/*rtp2httpd* 2>/dev/null || echo "  (empty)"
+fi
+echo "rtp2httpd 所有同名旧包/缓存/feed 配置已清理（准备重新安装官方最新 Release）"
 
 # ---------- B. 获取官方最新 Release tag ----------
-# 优先用 gh api（Actions 有 token，不受 rate-limit 影响）
+# 优先：gh api（Actions 环境自带 GITHUB_TOKEN，不受 rate-limit）
 _RTP_LATEST_TAG=""
 if command -v gh >/dev/null 2>&1; then
 	_RTP_LATEST_TAG=$(gh api repos/stackia/rtp2httpd/releases/latest --jq '.tag_name' 2>/dev/null | tr -d '\r\n ')
 fi
-# gh 不可用或失败时回退 git ls-remote（按语义化版本排序取最大 tag）
+# 回退：git ls-remote 取所有 tag，语义化版本排序取最大
 if [ -z "$_RTP_LATEST_TAG" ] || [ "$_RTP_LATEST_TAG" = "null" ]; then
 	_RTP_LATEST_TAG=$(git ls-remote --tags --refs https://github.com/stackia/rtp2httpd.git 2>/dev/null \
 		| awk '{print $2}' \
@@ -171,58 +205,80 @@ if [ -z "$_RTP_LATEST_TAG" ]; then
 else
 	echo "rtp2httpd 官方最新 Release tag: $_RTP_LATEST_TAG"
 fi
-# 去掉开头的 v，作为纯版本号（传给 Makefile 时要去掉 v）：
 _RTP_LATEST_VER="${_RTP_LATEST_TAG#v}"
 echo "rtp2httpd 纯版本号: $_RTP_LATEST_VER"
 
-# ---------- C. 写入最新 tag 的 feed 配置 ----------
-echo "src-git-full rtp2httpd https://github.com/stackia/rtp2httpd.git $_RTP_LATEST_TAG openwrt-support" >> ./feeds.conf.default
-echo "rtp2httpd feed 已注入（tag=$_RTP_LATEST_TAG，子目录=openwrt-support）"
+# ---------- C. git clone 官方源码（指定最新 tag，+ openwrt-support 子目录） ----------
+_RTP_TMP_DIR="./package/stackia-rtp2httpd-src"
+_RTP_CUSTOM_DIR="./package/rtp2httpd-official"
+rm -rf "$_RTP_TMP_DIR" "$_RTP_CUSTOM_DIR" 2>/dev/null
+# --depth=1 + 指定 tag，速度最快（和 Release 预编译包同 commit 代码）
+git clone --depth=1 --branch "$_RTP_LATEST_TAG" \
+	https://github.com/stackia/rtp2httpd.git "$_RTP_TMP_DIR" 2>&1 | tail -2
+# 创建自定义包目录（OpenWrt 会自动扫描 package/ 下的 Makefile）
+mkdir -p "$_RTP_CUSTOM_DIR"
 
-# ---------- D. 从官方 feed clone 最新 Release 源码 ----------
-./scripts/feeds update rtp2httpd 2>&1 | tail -3
-_RTP_FEED_DIR="./feeds/rtp2httpd"
-
-# ---------- E. patch 三个 Makefile：写死 RELEASE_VERSION/PKG_VERSION ----------
-# 原因：src-git-full 是指定 tag 的浅克隆，Makefile 里 `git describe --tags
-# --exact-match` 无法拿到 tag，会退回日期格式版本号，导致和 Release 预编译包
-# 显示/界面不一致。所以显式写死为官方最新 tag 的纯版本号（= 一键脚本安装结果）。
-if [ -d "$_RTP_FEED_DIR" ]; then
-	for _pkg in rtp2httpd luci-app-rtp2httpd; do
-		_mk="$_RTP_FEED_DIR/$_pkg/Makefile"
-		if [ -f "$_mk" ]; then
-			# 1) RELEASE_VERSION 写死
-			sed -i "s|^RELEASE_VERSION:=.*|RELEASE_VERSION:=$_RTP_LATEST_VER|" "$_mk" 2>/dev/null
-			# 2) PKG_VERSION 写死（纯数字版本号，和 Release apk/ipk 一致）
-			sed -i "s|^PKG_VERSION:=\$(shell echo.*|PKG_VERSION:=$_RTP_LATEST_VER|" "$_mk" 2>/dev/null
-			# 3) PKG_RELEASE 写死 1（和 Release 预编译包保持一致）
-			sed -i 's|^PKG_RELEASE:=.*|PKG_RELEASE:=1|' "$_mk" 2>/dev/null
-			# 4) luci-app-rtp2httpd：PKG_PO_VERSION 和主程序一致
-			if [ "$_pkg" = "luci-app-rtp2httpd" ]; then
-				sed -i "s|^PKG_PO_VERSION:=.*|PKG_PO_VERSION:=$_RTP_LATEST_VER|" "$_mk" 2>/dev/null
-			fi
-			echo "已 patch $_pkg/Makefile -> 版本=$_RTP_LATEST_VER-r1"
+# ---------- D. 移动 openwrt-support 下三个包到自定义目录 + 覆盖 Makefile.versioned ----------
+# 参考 issue #695 xzhhzx222 的步骤：
+#   mv -vf package/stackia-rtp2httpd/openwrt-support/rtp2httpd/          package/rtp2httpd-official/
+#   mv -vf package/stackia-rtp2httpd/openwrt-support/luci-app-rtp2httpd/ package/rtp2httpd-official/
+#   mv -vf package/stackia-rtp2httpd/openwrt-support/luci-i18n-rtp2httpd-zh-cn/ package/rtp2httpd-official/
+#   mv -vf package/rtp2httpd-official/rtp2httpd/Makefile.versioned          package/rtp2httpd-official/rtp2httpd/Makefile
+#   mv -vf package/rtp2httpd-official/luci-app-rtp2httpd/Makefile.versioned package/rtp2httpd-official/luci-app-rtp2httpd/Makefile
+# 这里用 cp -rf 先复制（保留源用于对比），然后 rm -rf 临时目录，效果等同 mv。
+for _subpkg in rtp2httpd luci-app-rtp2httpd luci-i18n-rtp2httpd-zh-cn; do
+	_SRC="$_RTP_TMP_DIR/openwrt-support/$_subpkg"
+	if [ -d "$_SRC" ]; then
+		cp -rf "$_SRC" "$_RTP_CUSTOM_DIR/"
+		# 官方提供的 Makefile.versioned：里面 PKG_VERSION/PKG_RELEASE 按 tag 写死，
+		# 不依赖 luci.mk 的自动日期版本号（26.xxx.xxxxx~commit 就是 luci.mk 产生的）
+		if [ -f "$_RTP_CUSTOM_DIR/$_subpkg/Makefile.versioned" ]; then
+			mv -f "$_RTP_CUSTOM_DIR/$_subpkg/Makefile.versioned" "$_RTP_CUSTOM_DIR/$_subpkg/Makefile"
+			echo "使用 Makefile.versioned -> $_subpkg/Makefile（避免 luci.mk 生成 26.xxx.xxxx 版本号）"
 		fi
-	done
-	# 保险：如果有独立的 i18n Makefile 也 patch 一下
-	_i18n_mk="$_RTP_FEED_DIR/luci-i18n-rtp2httpd-zh-cn/Makefile"
-	if [ -f "$_i18n_mk" ]; then
-		sed -i "s|^PKG_VERSION:=.*|PKG_VERSION:=$_RTP_LATEST_VER|" "$_i18n_mk" 2>/dev/null
-		sed -i 's|^PKG_RELEASE:=.*|PKG_RELEASE:=1|' "$_i18n_mk" 2>/dev/null
-		echo "已 patch luci-i18n-rtp2httpd-zh-cn/Makefile -> 版本=$_RTP_LATEST_VER-r1"
 	fi
-	unset _mk _pkg _i18n_mk
+done
+# 清临时 clone 目录
+rm -rf "$_RTP_TMP_DIR"
+
+# ---------- E. 安全兜底：如果 Makefile.versioned 里 PKG_VERSION 不是动态占位符 ----------
+# 官方 Makefile.versioned 里一般写死 PKG_VERSION=3.15.3 / PKG_RELEASE=1，
+# 但如果 tag 比仓库里 versioned 的版本号更新，这里再做一次 sed 写死，确保和最新 tag 对齐。
+for _pkg in rtp2httpd luci-app-rtp2httpd; do
+	_mk="$_RTP_CUSTOM_DIR/$_pkg/Makefile"
+	if [ -f "$_mk" ]; then
+		sed -i "s|^RELEASE_VERSION:=.*|RELEASE_VERSION:=$_RTP_LATEST_VER|" "$_mk" 2>/dev/null
+		sed -i "s|^PKG_VERSION:=.*|PKG_VERSION:=$_RTP_LATEST_VER|" "$_mk" 2>/dev/null
+		sed -i 's|^PKG_RELEASE:=.*|PKG_RELEASE:=1|' "$_mk" 2>/dev/null
+		if [ "$_pkg" = "luci-app-rtp2httpd" ]; then
+			sed -i "s|^PKG_PO_VERSION:=.*|PKG_PO_VERSION:=$_RTP_LATEST_VER|" "$_mk" 2>/dev/null
+		fi
+	fi
+done
+# i18n 的 PKG_VERSION 继承自 luci.mk + PKG_PO_VERSION，保险再 patch 一下
+_I18N_MK="$_RTP_CUSTOM_DIR/luci-i18n-rtp2httpd-zh-cn/Makefile"
+if [ -f "$_I18N_MK" ]; then
+	sed -i "s|^PKG_VERSION:=.*|PKG_VERSION:=$_RTP_LATEST_VER|" "$_I18N_MK" 2>/dev/null
+	sed -i 's|^PKG_RELEASE:=.*|PKG_RELEASE:=1|' "$_I18N_MK" 2>/dev/null
 fi
 
-# ---------- F. 强制安装 rtp2httpd 三个包 ----------
-# -f: 若 ImmortalWrt packages feed 里已注册同名包，强制覆盖为官方 feed 的版本
-# -p rtp2httpd: 明确从官方 feed 选，不回退到 ImmortalWrt packages（版本会低）
-./scripts/feeds install -f -p rtp2httpd rtp2httpd 2>/dev/null
-./scripts/feeds install -f -p rtp2httpd luci-app-rtp2httpd 2>/dev/null
-./scripts/feeds install -f -p rtp2httpd luci-i18n-rtp2httpd-zh-cn 2>/dev/null
-echo "rtp2httpd 三件套安装完成（官方最新 Release $_RTP_LATEST_TAG = $_RTP_LATEST_VER-r1）"
+# ---------- F. 验证结果 ----------
+echo ""
+echo "========== rtp2httpd 集成完成（package/自定义目录方式，优先级最高）=========="
+for _subpkg in rtp2httpd luci-app-rtp2httpd luci-i18n-rtp2httpd-zh-cn; do
+	_pkg_mk="$_RTP_CUSTOM_DIR/$_subpkg/Makefile"
+	if [ -f "$_pkg_mk" ]; then
+		_pv=$(grep -m1 '^PKG_VERSION:=' "$_pkg_mk" 2>/dev/null | sed 's|PKG_VERSION:=||' | tr -d '\r')
+		_pr=$(grep -m1 '^PKG_RELEASE:=' "$_pkg_mk" 2>/dev/null | sed 's|PKG_RELEASE:=||' | tr -d '\r')
+		echo "  ✅ $_subpkg: 目录=$(realpath $_RTP_CUSTOM_DIR/$_subpkg 2>/dev/null || echo $_RTP_CUSTOM_DIR/$_subpkg)  版本=$_pv-$_pr"
+	else
+		echo "  ❌ $_subpkg: 不存在！构建时会回退到 ImmortalWrt feeds 的旧版！"
+	fi
+done
+echo "========================================================================="
+echo ""
 
-unset _RTP_LATEST_TAG _RTP_LATEST_VER _RTP_FEED_DIR
+unset _RTP_LATEST_TAG _RTP_LATEST_VER _RTP_TMP_DIR _RTP_CUSTOM_DIR _SRC _pkg _mk _pv _pr _I18N_MK _subpkg
 
 # ========================================================================
 # 2. NN6000 V1 网口重定义（patch ImmortalWrt 源码）
