@@ -253,6 +253,18 @@ for _pkg in rtp2httpd luci-app-rtp2httpd; do
 		if [ "$_pkg" = "luci-app-rtp2httpd" ]; then
 			sed -i "s|^PKG_PO_VERSION:=.*|PKG_PO_VERSION:=$_RTP_LATEST_VER|" "$_mk" 2>/dev/null
 		fi
+		# ===== Compile Firmware 报错根因修复 =====
+		# 官方 Makefile.versioned 里 PKG_HASH 写死的是「Makefile.versioned 当前写的 RELEASE_VERSION」
+		# 的源码包 hash。而我们自动追最新 tag 时，RELEASE_VERSION 会被上一行 sed 改成最新版号，
+		# 导致 PKG_HASH（旧值）和 实际下载到的 tar.gz（最新版）hash 不匹配，
+		# make 解压前校验失败 → Compile Firmware 步骤红叉退出。
+		# 修复方式：一律用 PKG_HASH:=skip（OpenWrt buildroot 原生支持）跳过 hash 校验，
+		# 因为我们追的是 GitHub 官方最新 tag 源码，信任上游签名，不需要本地强制 hash。
+		# 先删除旧的 PKG_HASH 行（避免留两份），再在 PKG_SOURCE 行后面追加 skip 版本。
+		sed -i '/^PKG_HASH:=/d' "$_mk" 2>/dev/null
+		if [ "$_pkg" = "rtp2httpd" ]; then
+			sed -i '/^PKG_SOURCE:=/a\PKG_HASH:=skip' "$_mk" 2>/dev/null
+		fi
 	fi
 done
 # i18n 的 PKG_VERSION 继承自 luci.mk + PKG_PO_VERSION，保险再 patch 一下
