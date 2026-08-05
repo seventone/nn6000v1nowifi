@@ -52,5 +52,8 @@ CONFIG_PACKAGE_luci-lib-ipkg=y
 CONFIG_PACKAGE_luci-lua-runtime=y
 CONFIG_PACKAGE_proto-bonding=y
 CONFIG_PACKAGE_xz-utils=y
-# IPTV 组播转 HTTP（rtp2httpd）
+# IPTV 组播转 HTTP（rtp2httpd）—— 从 stackia/rtp2httpd 主仓库拉取最新版
+# 注意：三个包必须同时配置，否则 luci 菜单和中文翻译不会出现
 CONFIG_PACKAGE_rtp2httpd=y
+CONFIG_PACKAGE_luci-app-rtp2httpd=y
+CONFIG_PACKAGE_luci-i18n-rtp2httpd-zh-cn=y

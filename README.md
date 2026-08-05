@@ -1,8 +1,14 @@
 # NN6000 V1 无WiFi版 固件编译 (OpenWRT / ImmortalWrt)
 
-基于 [VIKINGYFY/OpenWRT-CI](https://github.com/VIKINGYFY/OpenWRT-CI) 精简而来，仅用于编译 **NN6000 V1 无WiFi版**（link_nn6000-v1，IPQ6018 平台）的固件。
+> ⚠️ **警告：本仓库仅为作者个人使用的固件编译配置，不适合他人直接使用。**
+> 
+> 本仓库包含作者私人定制的网络参数、MAC 地址、root 密码、IPTV 配置等，直接使用本仓库编译的固件可能导致您的设备无法正常工作、网络冲突或安全风险。
+> 
+> **仅供学习参考，请勿下载使用本仓库的 Release 固件。**
 
-# 源码来源
+---
+
+# 编译源
 
 ImmortalWrt 官方版：
 https://github.com/immortalwrt/immortalwrt.git
@@ -10,24 +16,18 @@ https://github.com/immortalwrt/immortalwrt.git
 VIKINGYFY 自用版（默认使用）：
 https://github.com/VIKINGYFY/immortalwrt.git
 
-# 固件简要说明
+---
 
-- 目标设备：**NN6000 V1 无WiFi版**（qualcommax / ipq60xx / link_nn6000-v1）
-- WiFi 驱动：已全部禁用（无WiFi版）
-- 自动编译：每天早上 5 点（Auto-Clean 运行完成后触发）
-- 手动编译：可在 GitHub Actions 的 `NN6000-V1-WIFI-NO` 工作流中点击 Run workflow
-- 固件信息里的时间为编译开始的时间，方便核对上游源码提交时间
+# 仅个人使用声明
 
-# 目录简要说明
+本仓库所有配置文件、脚本、固件 Release 均为作者私人定制，**包含以下个人专属配置**：
 
-- `.github/workflows/` — 自定义 CI 配置
-  - `NN6000V1NOWIFI.YML` — NN6000 V1 无WiFi版编译入口
-  - `WRT-CORE.yml` — 云编译公用核心
-  - `Auto-Clean.yml` — 自动清理旧 Release / Workflow
-  - `Cache-Clean.yml` — 自动清理缓存
-- `Scripts/` — 自定义脚本
-  - `Settings.sh` — 旁路由默认配置（静态IP/DHCP/网口/防火墙/默认主题等）
-- `Config/` — 自定义配置
-  - `GENERAL.txt` — 通用内核配置（仅保留基础网络/存储/系统，插件后期 opkg 安装）
-  - `IPQ60XX-WIFI-NO.txt` — NN6000 V1 无WiFi版专属配置（仅保留 link_nn6000-v1 设备）
+- 静态 IP 地址、网关、DNS 服务器
+- 自定义 MAC 地址（lan1/lan2/lan3）
+- root 用户密码
+- IPTV 专用网口配置（lan3 分离）
+- rtp2httpd 服务配置和频道列表
+- 防火墙 zone 规则
+- 其他与作者网络环境绑定的参数
 
+**他人请勿使用本仓库的 Release 固件，否则后果自负。**

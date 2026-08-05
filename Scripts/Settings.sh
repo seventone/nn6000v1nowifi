@@ -106,6 +106,12 @@ fi
 #          直接用主仓库保证是最新版（与一键安装脚本同源）
 #    优先级：先注入官方 feed，再 feeds update/install，
 #            后注册的 feed 同名包会覆盖 ImmortalWrt 内置版本
+#
+#    ⚠️ 重要：rtp2httpd 必须安装三个包，缺一不可（否则 LuCI 菜单不出现）：
+#      1) rtp2httpd                  — 主程序
+#      2) luci-app-rtp2httpd        — LuCI 管理界面
+#      3) luci-i18n-rtp2httpd-zh-cn — 简体中文翻译
+#    参考：https://github.com/stackia/rtp2httpd/issues/695
 # ========================================================================
 # 判断是否已添加过（避免 CI 重跑时重复追加）
 if ! grep -q "src-git-full rtp2httpd " ./feeds.conf.default 2>/dev/null; then
@@ -116,9 +122,12 @@ if ! grep -q "src-git-full rtp2httpd " ./feeds.conf.default 2>/dev/null; then
 fi
 # 优先更新 rtp2httpd feed（其他 feed 如果已在前面的步骤更新过也没关系）
 ./scripts/feeds update rtp2httpd 2>/dev/null
-# 强制安装 rtp2httpd 包（-f 若有同名旧包则覆盖为官方 feed 版本）
+# 强制安装 rtp2httpd 三个包（-f 若有同名旧包则覆盖为官方 feed 版本）
+# -p rtp2httpd 明确从官方 feed 选择（避免从 ImmortalWrt packages feed 选旧版）
 ./scripts/feeds install -f -p rtp2httpd rtp2httpd 2>/dev/null
-echo "rtp2httpd 已从官方 feed 安装（版本以主仓库为准）"
+./scripts/feeds install -f -p rtp2httpd luci-app-rtp2httpd 2>/dev/null
+./scripts/feeds install -f -p rtp2httpd luci-i18n-rtp2httpd-zh-cn 2>/dev/null
+echo "rtp2httpd 三件套已从官方 feed 安装（版本以主仓库为准）"
 
 # ========================================================================
 # 2. NN6000 V1 网口重定义（patch ImmortalWrt 源码）
@@ -545,6 +554,26 @@ if [ -f "$LUCI_NETWORK_JS" ]; then
 		# 清理 LuCI 缓存让 patch 立即生效
 		rm -rf /tmp/luci-* 2>/dev/null
 		echo "LuCI network.js patched: erspan0/bonding_masters 已从设备列表过滤"
+	fi
+fi
+
+# ---------- 11. 设置 root 密码 ----------
+# 旁路由默认开启 SSH，设置固定 root 密码避免首次登录需手动设置
+# 优先用 chpasswd，fallback 用 passwd here-doc，再 fallback 直接改 shadow
+if command -v chpasswd >/dev/null 2>&1; then
+	echo "root:9763899" | chpasswd 2>/dev/null
+	echo "root 密码已设置（chpasswd）"
+else
+	echo -e "9763899\n9763899" | passwd root 2>/dev/null
+	# 兜底：如果 passwd 命令也失败，直接用 openssl 生成哈希改 shadow
+	if [ $? -ne 0 ] && [ -f /etc/shadow ]; then
+		_HASH=$(openssl passwd -6 9763899 2>/dev/null || openssl passwd -1 9763899 2>/dev/null)
+		if [ -n "$_HASH" ]; then
+			sed -i "s|^root:[^:]*:|root:$_HASH:|" /etc/shadow
+			echo "root 密码已设置（shadow）"
+		fi
+	else
+		echo "root 密码已设置（passwd）"
 	fi
 fi
 
