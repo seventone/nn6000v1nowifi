@@ -107,27 +107,83 @@ fi
 #    优先级：先注入官方 feed，再 feeds update/install，
 #            后注册的 feed 同名包会覆盖 ImmortalWrt 内置版本
 #
-#    ⚠️ 重要：rtp2httpd 必须安装三个包，缺一不可（否则 LuCI 菜单不出现）：
+#    ⚠️ 关键1：feed 必须指向 openwrt-support 子目录（而不是仓库根），
+#            否则 Makefile 在子目录里，feeds install 找不到三个包，
+#            会回退到 ImmortalWrt packages feed 取旧版（界面不同！）。
+#            src-git-full 第四参数 = 子目录，参考：rtp2httpd.com/guide/installation
+#
+#    ⚠️ 关键2：rtp2httpd 必须安装三个包，缺一不可（否则 LuCI 菜单不出现）：
 #      1) rtp2httpd                  — 主程序
 #      2) luci-app-rtp2httpd        — LuCI 管理界面
 #      3) luci-i18n-rtp2httpd-zh-cn — 简体中文翻译
 #    参考：https://github.com/stackia/rtp2httpd/issues/695
+#
+#    ⚠️ 关键3：官方 Makefile 的 RELEASE_VERSION/PKG_VERSION 依赖
+#            $(shell git describe --tags ...) 从 git tag 取版本号，
+#            若 feed clone 时 tag 丢失或未在 tagged commit 上，
+#            三个包的版本号回退成日期格式或 ImmortalWrt 风格，
+#            界面也可能和 Release 预编译的不一致。
+#            所以 feeds update 后必须 patch 三个 Makefile，
+#            把 PKG_VERSION 强制写死为 v3.15.3（和一键安装脚本一致）。
 # ========================================================================
-# 判断是否已添加过（避免 CI 重跑时重复追加）
-if ! grep -q "src-git-full rtp2httpd " ./feeds.conf.default 2>/dev/null; then
-	# 用 src-git-full 拉取完整历史（rtp2httpd 仓库很小，完整 clone 也很快）
+# 先移除可能残留的旧 feed 配置（之前版本没加子目录参数，可能导致取包错误）
+if grep -q "src-git-full rtp2httpd https://github.com/stackia/rtp2httpd.git$" ./feeds.conf.default 2>/dev/null; then
+	# 旧配置（缺少子目录参数）→ 删掉重写
+	sed -i '\|src-git-full rtp2httpd https://github.com/stackia/rtp2httpd.git$|d' ./feeds.conf.default 2>/dev/null
+	echo "旧版 rtp2httpd feed 配置（无子目录参数）已移除"
+fi
+# 判断是否已添加过（新版本带 openwrt-support 子目录）
+if ! grep -q "src-git-full rtp2httpd .*openwrt-support" ./feeds.conf.default 2>/dev/null; then
+	# 用 src-git-full 拉取完整历史，第四参数指定子目录 = openwrt-support
+	# 这样 feeds 工具直接在 openwrt-support/ 下扫描 Makefile，
+	# 能正确找到 rtp2httpd/luci-app-rtp2httpd/luci-i18n-rtp2httpd-zh-cn 三个包
 	# 放在 feeds.conf.default 末尾，同名包优先级最高
-	echo "src-git-full rtp2httpd https://github.com/stackia/rtp2httpd.git" >> ./feeds.conf.default
-	echo "rtp2httpd 官方 feed 已注入 feeds.conf.default"
+	echo "src-git-full rtp2httpd https://github.com/stackia/rtp2httpd.git main openwrt-support" >> ./feeds.conf.default
+	echo "rtp2httpd 官方 feed 已注入（子目录=openwrt-support）"
 fi
 # 优先更新 rtp2httpd feed（其他 feed 如果已在前面的步骤更新过也没关系）
 ./scripts/feeds update rtp2httpd 2>/dev/null
-# 强制安装 rtp2httpd 三个包（-f 若有同名旧包则覆盖为官方 feed 版本）
+# ---------- patch 三个 Makefile，强制版本号对齐 Release ----------
+# 官方 Makefile.versioned 思路：写死 PKG_VERSION=3.15.3 PKG_RELEASE=1，
+# 不依赖 git tag 取版本号，保证和一键安装脚本的预编译包版本/界面完全一致。
+# 先找到实际 feed 目录
+_RTP_FEED_DIR="./feeds/rtp2httpd"
+if [ -d "$_RTP_FEED_DIR" ]; then
+	for _pkg in rtp2httpd luci-app-rtp2httpd; do
+		_mk="$_RTP_FEED_DIR/$_pkg/Makefile"
+		if [ -f "$_mk" ]; then
+			# 1) 替换 RELEASE_VERSION shell 逻辑为写死
+			sed -i 's|^RELEASE_VERSION:=.*|RELEASE_VERSION:=3.15.3|' "$_mk" 2>/dev/null
+			# 2) 替换 PKG_VERSION shell 逻辑为写死（同时去掉 _alpha/_rc 等转换）
+			sed -i 's|^PKG_VERSION:=$(shell echo.*|PKG_VERSION:=3.15.3|' "$_mk" 2>/dev/null
+			# 3) PKG_RELEASE 写死 1
+			sed -i 's|^PKG_RELEASE:=.*|PKG_RELEASE:=1|' "$_mk" 2>/dev/null
+			# 4) luci-app-rtp2httpd 额外写死 PKG_PO_VERSION
+			if [ "$_pkg" = "luci-app-rtp2httpd" ]; then
+				sed -i 's|^PKG_PO_VERSION:=.*|PKG_PO_VERSION:=3.15.3|' "$_mk" 2>/dev/null
+			fi
+			echo "已 patch $_pkg/Makefile -> PKG_VERSION=3.15.3-r1"
+		fi
+	done
+	# luci-i18n-rtp2httpd-zh-cn 的 PKG_VERSION 继承自 luci.mk + PKG_PO_VERSION，
+	# 上面 luci-app-rtp2httpd 的 PKG_PO_VERSION 写死就够了，
+	# 这里保险起见也 patch 一下 i18n Makefile（如果有的话）
+	_i18n_mk="$_RTP_FEED_DIR/luci-i18n-rtp2httpd-zh-cn/Makefile"
+	if [ -f "$_i18n_mk" ]; then
+		sed -i 's|^PKG_VERSION:=.*|PKG_VERSION:=3.15.3|' "$_i18n_mk" 2>/dev/null
+		sed -i 's|^PKG_RELEASE:=.*|PKG_RELEASE:=1|' "$_i18n_mk" 2>/dev/null
+		echo "已 patch luci-i18n-rtp2httpd-zh-cn/Makefile -> PKG_VERSION=3.15.3-r1"
+	fi
+	unset _mk _pkg _i18n_mk
+fi
+unset _RTP_FEED_DIR
+# ---------- 强制安装 rtp2httpd 三个包 ----------
+# -f 若有同名旧包则覆盖为官方 feed 版本
 # -p rtp2httpd 明确从官方 feed 选择（避免从 ImmortalWrt packages feed 选旧版）
 ./scripts/feeds install -f -p rtp2httpd rtp2httpd 2>/dev/null
 ./scripts/feeds install -f -p rtp2httpd luci-app-rtp2httpd 2>/dev/null
 ./scripts/feeds install -f -p rtp2httpd luci-i18n-rtp2httpd-zh-cn 2>/dev/null
-echo "rtp2httpd 三件套已从官方 feed 安装（版本以主仓库为准）"
+echo "rtp2httpd 三件套已从官方 feed 安装（版本强制=3.15.3-r1，与一键安装脚本一致）"
 
 # ========================================================================
 # 2. NN6000 V1 网口重定义（patch ImmortalWrt 源码）
