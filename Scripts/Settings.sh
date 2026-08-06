@@ -5,7 +5,7 @@
 # 目标：
 #   - 旁路由模式：lan1+lan2 桥接 br-lan，lan3 独立为 IPTV 口
 #   - lan3 通过 DHCP 获取 IPTV 专网 IP，运行 rtp2httpd 提供组播转 HTTP 服务
-#   - 静态 IP：10.0.0.30/24，网关 10.0.0.100，DNS 10.0.0.5 + 223.5.5.5
+#   - 静态 IP：10.0.0.30/24，网关 10.0.0.100，DNS 10.0.0.100 + 223.5.5.5
 #   - 关闭 DHCP（主路由提供 DHCP）
 #   - 删除 WAN/WAN6 接口 + 防火墙 WAN zone
 #   - IPv6 编译进固件但默认关闭
@@ -16,7 +16,7 @@
 LAN_IP="10.0.0.30"
 LAN_MASK="255.255.255.0"
 LAN_GW="10.0.0.100"
-LAN_DNS1="10.0.0.5"
+LAN_DNS1="10.0.0.100"
 LAN_DNS2="223.5.5.5"
 
 # ========================================================================
@@ -545,8 +545,37 @@ if [ -d /sys/class/net/br-lan ]; then
   ip link set dev br-lan address "$BR_LAN_MAC" 2>/dev/null || true
 fi
 
+# ---------- 2.4 MAC 持久化：rc.local + netifd hotplug（每次开机/ifup 补刷） ----------
+# 背景（v5.11 实测）：uci-defaults 只在首次启动跑一次，上面的 ip link set 兜底
+#   跑完后，netifd 后续重载 / 驱动 probe 时 NSS-DP 会把端口 MAC 打回出厂基址
+#   （lan1=79 lan2=7a lan3=7b），所以必须持久化：
+#   ① /etc/rc.local 开机时刷一次
+#   ② /etc/hotplug.d/net/90-mac-fix 在每次接口 ifup 时再刷一次（netifd 重载也能恢复）
+# 注意：$LAN1_MAC 等变量由本文件 2 节开头定义，此处引用会在设备端展开。
+mkdir -p /etc/hotplug.d/net
+cat > /etc/hotplug.d/net/90-mac-fix <<MACFIX_EOF
+#!/bin/sh
+# NN6000 V1 端口 MAC 持久化（由 Settings.sh 2.4 节生成）
+[ "\$ACTION" = "ifup" ] || exit 0
+[ -d /sys/class/net/lan1 ] && ip link set dev lan1 address "$LAN1_MAC" 2>/dev/null
+[ -d /sys/class/net/lan2 ] && ip link set dev lan2 address "$LAN2_MAC" 2>/dev/null
+[ -d /sys/class/net/lan3 ] && ip link set dev lan3 address "$LAN3_MAC" 2>/dev/null
+[ -d /sys/class/net/br-lan ] && ip link set dev br-lan address "$BR_LAN_MAC" 2>/dev/null
+exit 0
+MACFIX_EOF
+chmod +x /etc/hotplug.d/net/90-mac-fix
+# rc.local：先清掉旧 MAC-FIX 行再在 exit 0 前插入（幂等）
+sed -i '/# MAC-FIX/d' /etc/rc.local
+sed -i '/^exit 0/i ip link set dev lan1 address '"$LAN1_MAC"' # MAC-FIX\nip link set dev lan2 address '"$LAN2_MAC"' # MAC-FIX\nip link set dev lan3 address '"$LAN3_MAC"' # MAC-FIX\nip link set dev br-lan address '"$BR_LAN_MAC"' # MAC-FIX' /etc/rc.local
+chmod 0755 /etc/rc.local
+
 # ---------- 3. LAN 静态 IP / 掩码 / 网关 / DNS ----------
 # （原 section 3，IPTV 接口配置在 3.5 节）
+# ⚠ 重要（不能删）：uci-defaults 在设备端执行时**没有**构建机的环境变量，
+#   所以必须先用 PLACEHOLDER_* 字符串占位赋给 LAN_* 局部变量，
+#   由本脚本尾部第 747-752 行的 sed 把 PLACEHOLDER_* 批量替换成
+#   顶部第 16-20 行的真实值，设备端执行到此处时 $LAN_IP 等才是有效 IP。
+#   实测删掉这段占位赋值后，uci set 会写入空字符串 → IP/DNS/网关全丢。
 LAN_IP="PLACEHOLDER_LAN_IP"
 LAN_MASK="PLACEHOLDER_LAN_MASK"
 LAN_GW="PLACEHOLDER_LAN_GW"
@@ -632,8 +661,8 @@ uci commit firewall
 
 # ---------- 8. 写死 /etc/resolv.conf 避免被覆盖（旁路由模式下的 DNS） ----------
 cat > /etc/resolv.conf <<RESOLV_EOF
-nameserver PLACEHOLDER_LAN_DNS1
-nameserver PLACEHOLDER_LAN_DNS2
+nameserver $LAN_DNS1
+nameserver $LAN_DNS2
 RESOLV_EOF
 chmod 0644 /etc/resolv.conf 2>/dev/null
 
